@@ -12,7 +12,7 @@ import json
 from ledger.models import Ledger
 
 def index(request):
-	return HttpResponse("Hi")
+	return render(request, 'ledger/index.html')
 
 @ensure_csrf_cookie
 def getuser(request):
