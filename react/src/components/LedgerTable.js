@@ -4,7 +4,8 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import update from 'immutability-helper';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { Table } from 'react-bootstrap';
+import { Button, Col, Container, Form, Row, Table } from 'react-bootstrap';
+import { ChevronDoubleLeft, ChevronDoubleRight, ChevronLeft, ChevronRight, GripHorizontal, PencilSquare, PlusSquare } from 'react-bootstrap-icons'
 
 const DndTable = ({ columns, data }) => {
   const [records, setRecords] = React.useState(data)
@@ -22,7 +23,7 @@ const DndTable = ({ columns, data }) => {
   } = useTable({
     data: records,
     columns,
-    getRowId,
+    getRowId
   })
 
   const moveRow = (dragIndex, hoverIndex) => {
@@ -130,7 +131,7 @@ const DndRow = ({ row, index, moveRow }) => {
 
   return (
     <tr ref={dropRef} style={{ opacity }}>
-      <td ref={dragRef}>move</td>
+      <td ref={dragRef}><GripHorizontal style={{ cursor: 'pointer' }} /></td>
       {row.cells.map(cell => {
         return <td {...cell.getCellProps()}>{cell.render('Cell')}</td>
       })}
@@ -138,28 +139,81 @@ const DndRow = ({ row, index, moveRow }) => {
   )
 }
 
-const LedgerTable = (props) => {
+const LedgerTable = ({ ledger, transactions }) => {
 	
-	const data = React.useMemo(() => props.transactions, [props.transactions]);
+	const [pageNumber, setPageNumber] = React.useState(1)
+	const [pageSize, setPageSize] = React.useState(10)
+	
+	const data = React.useMemo(() => transactions, [transactions]);
+	
+	const formatDate = (datestr) => {
+		var dateOptions = { day: '2-digit', month: '2-digit', year: '2-digit' };
+		var timeOptions = { hour12: true, hour: '2-digit', minute:'2-digit', second:'2-digit' };
+		var date = new Date(datestr);
+		return date.toLocaleDateString('en', dateOptions) + " " + 
+			date.toLocaleTimeString('en', timeOptions);
+	}
+	
+	const formatCurrency = (pennies) => {
+		var dollars = parseFloat(pennies)/100.0;
+		return dollars.toLocaleString('en-US', { currency: 'USD', minimumFractionDigits: 2 });
+	}
 	
 	const columns = React.useMemo(() => [
-		{ Header: 'ID', accessor: 'id' },
-		{ Header: 'Date', accessor: 'transdate' },
+	    { Header: <PlusSquare style={{ cursor: 'pointer' }} onClick={() => ledger.addTransaction()} />, accessor: 'id', 
+			Cell: props => <PencilSquare style={{ cursor: 'pointer' }} onClick={() => ledger.editTransaction(props.value)} /> },
+		{ Header: 'Date', accessor: 'transdate', 
+			Cell: props => <>{formatDate(props.value)}</> },
 		{ Header: 'From', accessor: 'sourcename' },
 		{ Header: 'To', accessor: 'destname' },
 		{ Header: 'Note', accessor: 'comments' },
-		{ Header: 'Amount', accessor: 'amount' },
+		{ Header: <div className='text-right'>Amount</div>, accessor: 'amount',
+			Cell: props => <div className='text-right'>{formatCurrency(props.value)}</div> },
 		{ Header: 'Balance', accessor: 'balance' },
 		{ Header: 'Reconciled', accessor: 'reconciled' }
 	], []);	
 	
   if (data.length === 0) {
-	  console.log("no data.");
 	  return null;
   } else {
-	  console.log('data[0] = ' + JSON.stringify(data[0]));
 	  return (
-		 <DndTable columns={columns} data={data} />
+	  <Container fluid>
+		<Row>
+		  <Col sm={12}>
+		    <DndTable columns={columns} data={data} />
+		  </Col>
+		</Row>
+	    <Row>
+		  <Col sm={12} className='d-flex justify-content-center'>
+		    <Form inline>
+			  <Form.Group controlId='pageNumber'>
+				Page <Form.Control type="text" style={{ marginLeft: 5, marginRight: 5, width: 70 }} 
+						value={pageNumber} onChange={(event) => setPageNumber(event.target.value)} 
+						onBlur={() => ledger.setPageNumber(pageNumber)}
+						onKeyPress={(event) => { if (event.charCode === 13) { ledger.setPageNumber(pageNumber) }}} /> of 100
+			  </Form.Group>
+				<Button variant='outline-dark' style={{ paddingTop: 3, marginLeft: 10, marginRight: 4 }} onClick={() => ledger.firstPage()}>
+				  <ChevronDoubleLeft />
+				</Button>
+				<Button variant='outline-dark' style={{ paddingTop: 3, marginRight: 4 }} onClick={() => ledger.previousPage()}>
+				  <ChevronLeft />
+				</Button>
+				<Button variant='outline-dark' style={{ paddingTop: 3, marginRight: 4 }} onClick={() => ledger.nextPage()}>
+				  <ChevronRight />
+				</Button>
+				<Button variant='outline-dark' style={{ paddingTop: 3, marginRight: 10 }} onClick={() => ledger.lastPage()}>
+				  <ChevronDoubleRight />
+				</Button>
+			  <Form.Group controlId='pageSize'>
+				Show <Form.Control type="text" style={{ marginLeft: 5, marginRight: 5, width: 70 }}
+						value={pageSize} onChange={(event) => setPageSize(event.target.value)}
+						onBlur={() => ledger.setPageSize(pageSize)}
+						onKeyPress={(event) => { if (event.charCode === 13) { ledger.setPageSize(pageSize) }}} /> per page
+			  </Form.Group>
+			</Form>
+		  </Col>
+		</Row>
+      </Container>
 	  )
   }
 }

@@ -31,13 +31,45 @@ class Ledger extends LedgerComponent {
 			self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
 		});
 	}
+	
+	addTransaction() {
+		console.log('add transaction')
+	}
+	
+	editTransaction(transId) {
+		console.log('edit transaction ' + transId);
+	}
+	
+	firstPage() {
+		console.log('first page');
+	}
+	
+	previousPage() {
+		console.log('previous page');		
+	}
+	
+	nextPage() {
+		console.log('next page');		
+	}
+	
+	lastPage() {
+		console.log('last page');		
+	}
+	
+	setPageSize(newPageSize) {
+		console.log('set page size to ' + newPageSize);
+	}
+	
+	setPageNumber(newPageNumber) {
+		console.log('set page number to ' + newPageNumber);
+	}
 
 	render() {
 		return (
 			<Container fluid>
 				<Row>
 					<Col sm={12}>
-						<LedgerTable parent={this} transactions={this.state.transactions}/>
+						<LedgerTable ledger={this} transactions={this.state.transactions}/>
 					</Col>
 				</Row>
 			</Container>
