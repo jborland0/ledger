@@ -10,6 +10,7 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.db import connection
 import json
 from ledger.models import Ledger
+import math
 
 def index(request):
 	return render(request, 'ledger/index.html')
@@ -22,15 +23,36 @@ def getuser(request):
 		return JsonResponse({ 'id': -1, 'username': '' })
 
 def ledger(request):
+	pageNumber = int(request.GET.get('pageNumber', '1'))
+	pageSize = int(request.GET.get('pageSize', '10'))
 	transactions = []
 	if request.user.is_authenticated:
 		with connection.cursor() as cursor:
-			cursor.execute("SELECT * FROM ledger_ledgerdisplay WHERE user_id = %s", [request.user.id])
-			rows = cursor.fetchall()[:10]
+			cursor.execute("SELECT * FROM ledger_ledgerdisplay WHERE user_id = %s ORDER BY transdate", [request.user.id])
+			rows = cursor.fetchall()
+			# calculate total number of pages
+			rowCount = len(rows)
+			pageCount = math.ceil(rowCount/pageSize)
+			# make sure requested page is in range
+			# special case -1 indicates last page
+			if pageNumber == -1 or pageNumber > pageCount:				
+				pageNumber = pageCount
+			elif pageNumber < 1:
+				pageNumber = 1
+			# calculate start and end indices
+			startIndex = (pageNumber - 1) * pageSize
+			endIndex = startIndex + pageSize
+			if endIndex > rowCount:
+				endIndex = rowCount
+			# reduce rows to page we want
+			rows = rows[startIndex:endIndex]
+			# turn rows into dictionaries so they can be converted to json
 			keys = ('id','checknum','comments','amount','status','transdate','fitid','transdest_id','transsource_id','user_id','sourcename','destname')
 			for row in rows:
 				transactions.append(dict(zip(keys,row)))
-	return HttpResponse(json.dumps(transactions,cls=DjangoJSONEncoder), content_type='application/json')
+			# create dictionary for response
+			responseData = { 'pageNumber': pageNumber, 'pageSize': pageSize, 'pageCount': pageCount, 'transactions': transactions }
+	return HttpResponse(json.dumps(responseData,cls=DjangoJSONEncoder), content_type='application/json')
 
 def login(request):
 	data = json.loads(request.body)

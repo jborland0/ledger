@@ -13,23 +13,31 @@ class Ledger extends LedgerComponent {
 		super(props);
 		
 		this.state = {
-			transactions: []
+			key: 1,
+			transactions: [],
+			pageNumber: 1,
+			pageSize: 10,
+			pageCount: 1
 		};
 	}
 
 	componentDidMount() {
+		this.loadTransactions(this.state.pageNumber, this.state.pageSize);
+	}
+	
+	loadTransactions(pageNumber, pageSize) {
 		var self = this;
 		
 		$.ajax({
 			type: 'get',
-			url: this.getConfig().baseURL + 'ledger/'
-		}).done(function (ajaxData) {
-			console.log(ajaxData[0]);
-			self.setState({ transactions: ajaxData });
-			console.log("transactions set!");
+			url: this.getConfig().baseURL + 'ledger/',
+			data: 'pageNumber=' + pageNumber + '&pageSize=' + pageSize
+		}).done(function (data) {
+			data['key'] = self.state.key + 1;
+			self.mergeState(data);
 		}).fail(function (jqXHR, textStatus, errorThrown) {
 			self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
-		});
+		});		
 	}
 	
 	addTransaction() {
@@ -41,27 +49,40 @@ class Ledger extends LedgerComponent {
 	}
 	
 	firstPage() {
-		console.log('first page');
+		if (this.state.pageNumber != 1) {
+			this.loadTransactions(1, this.state.pageSize);
+		}
 	}
 	
 	previousPage() {
-		console.log('previous page');		
+		if (this.state.pageNumber > 1) {
+			this.loadTransactions(this.state.pageNumber - 1, this.state.pageSize);
+		}		
 	}
 	
 	nextPage() {
-		console.log('next page');		
+		// server will correct if page number is too big
+		this.loadTransactions(this.state.pageNumber + 1, this.state.pageSize);		
 	}
 	
 	lastPage() {
-		console.log('last page');		
+		// use -1 to indicate last page since we don't 
+		// necessarily know how many pages there are now
+		this.loadTransactions(-1, this.state.pageSize);
 	}
 	
-	setPageSize(newPageSize) {
-		console.log('set page size to ' + newPageSize);
+	setPageSize(pageSize) {
+		if (pageSize != this.state.pageSize) {
+			console.log("set page size to " + pageSize);
+			this.loadTransactions(this.state.pageNumber, pageSize);
+		}
 	}
 	
-	setPageNumber(newPageNumber) {
-		console.log('set page number to ' + newPageNumber);
+	setPageNumber(pageNumber) {
+		if (pageNumber != this.state.pageNumber) {
+			console.log('set page number to ' + pageNumber);
+			this.loadTransactions(pageNumber, this.state.pageSize);
+		}
 	}
 
 	render() {
@@ -69,7 +90,9 @@ class Ledger extends LedgerComponent {
 			<Container fluid>
 				<Row>
 					<Col sm={12}>
-						<LedgerTable ledger={this} transactions={this.state.transactions}/>
+						<LedgerTable ledger={this} key={this.state.key}
+						  transactions={this.state.transactions} propsPageNumber={this.state.pageNumber} 
+						  propsPageSize={this.state.pageSize} pageCount={this.state.pageCount}/>
 					</Col>
 				</Row>
 			</Container>

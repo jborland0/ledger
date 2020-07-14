@@ -38,7 +38,8 @@ class LedgerComponent extends React.Component {
 	}	
 
 	isObject(o) {
-		return typeof o === 'object' && o !== null
+		// for our purposes exclude arrays even though they are technically objects
+		return typeof o === 'object' && o !== null && !Array.isArray(o)
 	}
 
 	mergeState(newState) {

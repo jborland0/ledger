@@ -1,7 +1,6 @@
 import React from 'react';
 import { useTable } from 'react-table';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
+import { useDrag, useDrop } from 'react-dnd';
 import update from 'immutability-helper';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { Button, Col, Container, Form, Row, Table } from 'react-bootstrap';
@@ -39,7 +38,6 @@ const DndTable = ({ columns, data }) => {
   }
 
   return (
-    <DndProvider backend={HTML5Backend}>
       <Table {...getTableProps()}>
         <thead>
           {headerGroups.map(headerGroup => (
@@ -65,7 +63,6 @@ const DndTable = ({ columns, data }) => {
           )}
         </tbody>
       </Table>
-    </DndProvider>
   )
 }
 
@@ -139,12 +136,12 @@ const DndRow = ({ row, index, moveRow }) => {
   )
 }
 
-const LedgerTable = ({ ledger, transactions }) => {
+const LedgerTable = ({ ledger, transactions, propsPageNumber, propsPageSize, pageCount }) => {
 	
-	const [pageNumber, setPageNumber] = React.useState(1)
-	const [pageSize, setPageSize] = React.useState(10)
+	const [pageNumber, setPageNumber] = React.useState(propsPageNumber)
+	const [pageSize, setPageSize] = React.useState(propsPageSize)
 	
-	const data = React.useMemo(() => transactions, [transactions]);
+	// const data = React.useMemo(() => transactions, [transactions]);
 	
 	const formatDate = (datestr) => {
 		var dateOptions = { day: '2-digit', month: '2-digit', year: '2-digit' };
@@ -173,14 +170,14 @@ const LedgerTable = ({ ledger, transactions }) => {
 		{ Header: 'Reconciled', accessor: 'reconciled' }
 	], []);	
 	
-  if (data.length === 0) {
+  if (transactions.length === 0) {
 	  return null;
   } else {
 	  return (
 	  <Container fluid>
 		<Row>
 		  <Col sm={12}>
-		    <DndTable columns={columns} data={data} />
+		    <DndTable columns={columns} data={transactions} />
 		  </Col>
 		</Row>
 	    <Row>
@@ -190,7 +187,7 @@ const LedgerTable = ({ ledger, transactions }) => {
 				Page <Form.Control type="text" style={{ marginLeft: 5, marginRight: 5, width: 70 }} 
 						value={pageNumber} onChange={(event) => setPageNumber(event.target.value)} 
 						onBlur={() => ledger.setPageNumber(pageNumber)}
-						onKeyPress={(event) => { if (event.charCode === 13) { ledger.setPageNumber(pageNumber) }}} /> of 100
+						onKeyPress={(event) => { if (event.charCode === 13) { ledger.setPageNumber(pageNumber) }}} /> of {pageCount}
 			  </Form.Group>
 				<Button variant='outline-dark' style={{ paddingTop: 3, marginLeft: 10, marginRight: 4 }} onClick={() => ledger.firstPage()}>
 				  <ChevronDoubleLeft />
