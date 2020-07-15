@@ -6,6 +6,10 @@ class LedgerComponent extends React.Component {
 		super(props);
 	}
 	
+	getParentMatchPath() {
+		return this.props.parent.props.match.path;
+	}
+	
 	getConfig() {
 		if (this.props.parent) {
 			return this.props.parent.getConfig();
@@ -60,14 +64,6 @@ class LedgerComponent extends React.Component {
 				self.mergeObject(oldObj[key], newObj[key]);
 			}
 		});
-	}
-	
-	navigate(content) {
-		if (this.props.parent) {
-			this.props.parent.navigate(content);
-		} else {
-			this.mergeState({ content: content });
-		}
 	}
 	
 	setUser(user) {

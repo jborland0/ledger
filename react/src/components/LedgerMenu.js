@@ -1,4 +1,5 @@
 import React from 'react';
+import { Switch, Route } from "react-router-dom";
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Navbar from 'react-bootstrap/Navbar';
 import Nav from 'react-bootstrap/Nav';
@@ -17,12 +18,11 @@ class LedgerMenu extends LedgerComponent {
 		
 		this.state = {
 			alert: {
-				title: "",
-				content: "",
+				title: '',
+				content: '',
 				callback: null,
 				show: false
 			},
-			content: 'login',
 			user: {
 				id: -1,
 				username: ''
@@ -51,9 +51,11 @@ class LedgerMenu extends LedgerComponent {
 			url: this.getConfig().baseURL + "getuser/",
 		}).done(function (user) {
 			if (user.id == -1) {
-				self.mergeState({ user: user, content: 'login' });
+				self.mergeState({ user: user });
+				self.props.history.push(self.props.match.path + '/login');
 			} else {
-				self.mergeState({ user: user, content: 'ledger' });
+				self.mergeState({ user: user });
+				self.props.history.push(self.props.match.path + '/transactions');
 			}
 		}).fail(function (jqXHR, textStatus, errorThrown) {
 			self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
@@ -70,7 +72,7 @@ class LedgerMenu extends LedgerComponent {
 		}).done(function (data) {
 			if (data.success) {
 				self.mergeState({ user: { id: -1, username: '' }});
-				self.navigate('login');
+				self.props.history.push(self.props.match.path + '/login');
 			} else {
 				self.showAlert('Server Error', data.message);
 			}
@@ -108,23 +110,13 @@ class LedgerMenu extends LedgerComponent {
 	renderAccountLinks() {
 		if (this.state.user.id == -1) {
 			return(<>
-				<Nav.Link href='#' onSelect={(eventKey, event) => this.mergeState({ content: 'register' })}>Register</Nav.Link>
-				<Nav.Link href='#' onSelect={(eventKey, event) => this.mergeState({ content: 'login' })}>Log In</Nav.Link>
+				<Nav.Link href='#' onSelect={(eventKey, event) => this.props.history.push(this.props.match.path + '/register')}>Register</Nav.Link>
+				<Nav.Link href='#' onSelect={(eventKey, event) => this.props.history.push(this.props.match.path + '/login')}>Log In</Nav.Link>
 			</>)
 		} else {
 			return(<>
 				<Nav.Link href='#' onSelect={() => this.logOut()}>Log Out</Nav.Link>
 			</>);			
-		}
-	}
-	
-	renderContent() {
-		if (this.state.content == 'ledger') {
-			return (<Ledger parent={this} />);
-		} else if (this.state.content == 'login') {
-			return (<Login parent={this} />);
-		} else if (this.state.content == 'register') {
-			return (<Register parent={this} />);
 		}
 	}
  
@@ -146,7 +138,11 @@ class LedgerMenu extends LedgerComponent {
 					</Nav>
 				</Navbar>
 				<div style={{height: '10px', width: '100%'}}></div>
-				{this.renderContent()}
+				<Switch>
+					<Route exact path={this.props.match.path + '/transactions'} render={props => <Ledger parent={this} {...props} />} />
+					<Route exact path={this.props.match.path + '/login'} render={props => <Login parent={this} {...props} />} />
+					<Route exact path={this.props.match.path + '/register'} render={props => <Register parent={this} {...props} />} />
+				</Switch>
 				<Modal show={this.state.alert.show} onHide={() => this.onAlertClose()}>
 					<Modal.Header closeButton>
 						<Modal.Title>{this.state.alert.title}</Modal.Title>

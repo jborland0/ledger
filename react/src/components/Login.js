@@ -27,7 +27,7 @@ class Login extends LedgerComponent {
 		}).done(function (data) {
 			self.setUser(data);
 			self.mergeState({ username: '', password: '' });
-			self.navigate('ledger');
+			self.props.history.push(self.getParentMatchPath() + '/transactions');
 		}).fail(function (jqXHR, textStatus, errorThrown) {
 			self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
 		});

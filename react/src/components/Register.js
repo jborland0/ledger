@@ -32,7 +32,7 @@ class Register extends LedgerComponent {
 		}).done(function (data) {
 			if (data.success) {
 				self.mergeState({ registration: { username: '', password: '', passwordMatch: '', email: '' }, messages: {}});
-				self.navigate('login');
+				self.props.history.push(self.getParentMatchPath() + '/login');
 			} else {
 				self.mergeState({ messages: data.messages });
 			}

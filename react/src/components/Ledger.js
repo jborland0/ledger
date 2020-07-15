@@ -73,14 +73,12 @@ class Ledger extends LedgerComponent {
 	
 	setPageSize(pageSize) {
 		if (pageSize != this.state.pageSize) {
-			console.log("set page size to " + pageSize);
 			this.loadTransactions(this.state.pageNumber, pageSize);
 		}
 	}
 	
 	setPageNumber(pageNumber) {
 		if (pageNumber != this.state.pageNumber) {
-			console.log('set page number to ' + pageNumber);
 			this.loadTransactions(pageNumber, this.state.pageSize);
 		}
 	}
