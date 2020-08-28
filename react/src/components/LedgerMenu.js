@@ -10,6 +10,7 @@ import LedgerComponent from './LedgerComponent';
 import Ledger from './Ledger';
 import Login from './Login';
 import Register from './Register';
+import EditTransaction from './EditTransaction';
 import $ from 'jquery';
 
 class LedgerMenu extends LedgerComponent {
@@ -48,7 +49,7 @@ class LedgerMenu extends LedgerComponent {
 
 		$.ajax({
 			type: "get",
-			url: this.getConfig().baseURL + "getuser/",
+			url: this.getConfig().baseURL + "django_getuser/",
 		}).done(function (user) {
 			if (user.id == -1) {
 				self.mergeState({ user: user });
@@ -67,7 +68,7 @@ class LedgerMenu extends LedgerComponent {
 		
 		$.ajax({
 			type: 'post',
-			url: this.getConfig().baseURL + 'logout/',
+			url: this.getConfig().baseURL + 'django_logout/',
 			data: JSON.stringify(this.state.user)
 		}).done(function (data) {
 			if (data.success) {
@@ -139,6 +140,7 @@ class LedgerMenu extends LedgerComponent {
 				</Navbar>
 				<div style={{height: '10px', width: '100%'}}></div>
 				<Switch>
+					<Route path={this.props.match.path + '/transactions/:transactionId'} render={props => <EditTransaction parent={this} {...props} />} />
 					<Route exact path={this.props.match.path + '/transactions'} render={props => <Ledger parent={this} {...props} />} />
 					<Route exact path={this.props.match.path + '/login'} render={props => <Login parent={this} {...props} />} />
 					<Route exact path={this.props.match.path + '/register'} render={props => <Register parent={this} {...props} />} />

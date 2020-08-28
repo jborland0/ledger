@@ -30,7 +30,7 @@ class Ledger extends LedgerComponent {
 		
 		$.ajax({
 			type: 'get',
-			url: this.getConfig().baseURL + 'ledger/',
+			url: this.getConfig().baseURL + 'django_ledger/',
 			data: 'pageNumber=' + pageNumber + '&pageSize=' + pageSize
 		}).done(function (data) {
 			data['key'] = self.state.key + 1;
@@ -45,7 +45,7 @@ class Ledger extends LedgerComponent {
 	}
 	
 	editTransaction(transId) {
-		console.log('edit transaction ' + transId);
+		this.props.history.push(this.getParentMatchPath() + '/transactions/' + transId);
 	}
 	
 	firstPage() {

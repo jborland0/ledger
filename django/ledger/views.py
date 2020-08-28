@@ -9,20 +9,39 @@ from django.core import serializers
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import connection
 import json
-from ledger.models import Ledger
+from ledger.models import Entity, Ledger, TransactionType
 import math
 
 def index(request):
 	return render(request, 'ledger/index.html')
+	
+def django_entities(request):
+	entities = []
+	if request.user.is_authenticated:
+		entities = Entity.objects.filter(user__id=request.user.id).order_by('name')
+		entities_list = serializers.serialize('json', entities)
+	return HttpResponse(entities_list, content_type='application/json')
+
+def django_gettransaction(request):
+	transId = int(request.GET.get('transId'))
+	transactions = []
+	if request.user.is_authenticated:
+		with connection.cursor() as cursor:
+			cursor.execute("SELECT * FROM ledger_ledgerdisplay WHERE id = %s AND user_id = %s ORDER BY transdate", [transId, request.user.id])
+			rows = cursor.fetchall()
+			keys = ('id','checknum','comments','amount','status','transdate','fitid','transdest_id','transsource_id','user_id','sourcename','destname')
+			for row in rows:
+				transactions.append(dict(zip(keys,row)))
+	return HttpResponse(json.dumps(transactions,cls=DjangoJSONEncoder), content_type='application/json')
 
 @ensure_csrf_cookie
-def getuser(request):
+def django_getuser(request):
 	if request.user.is_authenticated:
 		return JsonResponse({ 'id': request.user.id, 'username': request.user.username })
 	else:
 		return JsonResponse({ 'id': -1, 'username': '' })
 
-def ledger(request):
+def django_ledger(request):
 	pageNumber = int(request.GET.get('pageNumber', '1'))
 	pageSize = int(request.GET.get('pageSize', '10'))
 	transactions = []
@@ -54,7 +73,7 @@ def ledger(request):
 			responseData = { 'pageNumber': pageNumber, 'pageSize': pageSize, 'pageCount': pageCount, 'transactions': transactions }
 	return HttpResponse(json.dumps(responseData,cls=DjangoJSONEncoder), content_type='application/json')
 
-def login(request):
+def django_login(request):
 	data = json.loads(request.body)
 	user = authenticate(request, username=data['username'], password=data['password'])
 	if user is None:
@@ -63,7 +82,7 @@ def login(request):
 		auth_login(request, user)
 		return JsonResponse({ 'id': user.id, 'username': user.username })
 
-def logout(request):
+def django_logout(request):
 	data = json.loads(request.body)
 	if request.user.is_authenticated:
 		if request.user.id == data['id']:
@@ -74,7 +93,7 @@ def logout(request):
 	else:
 		return JsonResponse({ 'success': False, 'message': 'user is not logged in' })
 
-def register(request):
+def django_register(request):
 	# create dictionary for messages
 	messages = {}
 	# load request data
@@ -105,3 +124,8 @@ def register(request):
 				return JsonResponse({ 'success': True, 'user' : { 'id': user.id, 'username': user.username } })
 	# create user failed, return error messages
 	return JsonResponse({ 'success': False, 'messages': messages })
+
+def django_transactiontypes(request):
+	types = TransactionType.objects.order_by('id')
+	types_list = serializers.serialize('json', types)
+	return HttpResponse(types_list, content_type='application/json')

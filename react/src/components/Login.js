@@ -22,7 +22,7 @@ class Login extends LedgerComponent {
 		
 		$.ajax({
 			type: 'post',
-			url: this.getConfig().baseURL + 'login/',
+			url: this.getConfig().baseURL + 'django_login/',
 			data: JSON.stringify(this.state)
 		}).done(function (data) {
 			self.setUser(data);

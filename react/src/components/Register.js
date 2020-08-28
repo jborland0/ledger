@@ -27,7 +27,7 @@ class Register extends LedgerComponent {
 		
 		$.ajax({
 			type: 'post',
-			url: this.getConfig().baseURL + 'register/',
+			url: this.getConfig().baseURL + 'django_register/',
 			data: JSON.stringify(this.state.registration)
 		}).done(function (data) {
 			if (data.success) {
