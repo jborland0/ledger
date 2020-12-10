@@ -44,10 +44,11 @@ def django_getuser(request):
 def django_ledger(request):
 	pageNumber = int(request.GET.get('pageNumber', '1'))
 	pageSize = int(request.GET.get('pageSize', '10'))
+	entity = int(request.GET.get('entity', '0'))
 	transactions = []
 	if request.user.is_authenticated:
 		with connection.cursor() as cursor:
-			cursor.execute("SELECT * FROM ledger_ledgerdisplay WHERE user_id = %s ORDER BY transdate", [request.user.id])
+			cursor.execute("SELECT * FROM ledger_ledgerdisplay WHERE user_id = %s and (transsource_id = %s or transdest_id = %s) ORDER BY transdate desc", [request.user.id, entity, entity])
 			rows = cursor.fetchall()
 			# calculate total number of pages
 			rowCount = len(rows)
@@ -70,7 +71,7 @@ def django_ledger(request):
 			for row in rows:
 				transactions.append(dict(zip(keys,row)))
 			# create dictionary for response
-			responseData = { 'pageNumber': pageNumber, 'pageSize': pageSize, 'pageCount': pageCount, 'transactions': transactions }
+	responseData = { 'pageNumber': pageNumber, 'pageSize': pageSize, 'pageCount': pageCount, 'transactions': transactions }
 	return HttpResponse(json.dumps(responseData,cls=DjangoJSONEncoder), content_type='application/json')
 
 def django_login(request):
@@ -124,6 +125,17 @@ def django_register(request):
 				return JsonResponse({ 'success': True, 'user' : { 'id': user.id, 'username': user.username } })
 	# create user failed, return error messages
 	return JsonResponse({ 'success': False, 'messages': messages })
+
+def django_settings(request):
+    settings = []
+    responseData = { 'home_account': 0, 'unknown_account': 0 }
+    if request.user.is_authenticated:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT home_account, unknown_account FROM ledger_settings_id WHERE user_id = %s", [request.user.id])
+            rows = cursor.fetchall()
+            if len(rows) > 0:
+                responseData = { 'home_account': rows[0][0], 'unknown_account': rows[0][1] }
+    return HttpResponse(json.dumps(responseData,cls=DjangoJSONEncoder), content_type='application/json')
 
 def django_transactiontypes(request):
 	types = TransactionType.objects.order_by('id')

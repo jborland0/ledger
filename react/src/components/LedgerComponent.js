@@ -46,9 +46,9 @@ class LedgerComponent extends React.Component {
 		return typeof o === 'object' && o !== null && !Array.isArray(o)
 	}
 
-	mergeState(newState) {
+	mergeState(newState, callback) {
 		this.mergeObject(this.state, newState);
-		this.setState(newState);
+		this.setState(newState, callback);
 	}
   
 	mergeObject(oldObj, newObj) {

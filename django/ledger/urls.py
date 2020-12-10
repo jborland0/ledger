@@ -11,6 +11,7 @@ urlpatterns = [
     path('django_login/', views.django_login, name='django_login'),
     path('django_logout/', views.django_logout, name='django_logout'),
     path('django_register/', views.django_register, name='django_register'),
+    path('django_settings/', views.django_settings, name='django_settings'),
     path('django_transactiontypes/', views.django_transactiontypes, name='django_transactiontypes'),
     re_path(r'^(?:.*)/?$', views.index, name='index')
 ]

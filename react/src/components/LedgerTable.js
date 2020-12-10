@@ -170,10 +170,7 @@ const LedgerTable = ({ ledger, transactions, propsPageNumber, propsPageSize, pag
 		{ Header: 'Reconciled', accessor: 'reconciled' }
 	], []);	
 	
-  if (transactions.length === 0) {
-	  return null;
-  } else {
-	  return (
+	return (
 	  <Container fluid>
 		<Row>
 		  <Col sm={12}>
@@ -211,8 +208,7 @@ const LedgerTable = ({ ledger, transactions, propsPageNumber, propsPageSize, pag
 		  </Col>
 		</Row>
       </Container>
-	  )
-  }
+	);
 }
 
 export default LedgerTable

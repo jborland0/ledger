@@ -14,6 +14,8 @@ class Ledger extends LedgerComponent {
 		
 		this.state = {
 			key: 1,
+			account: 0,
+			accounts: [],
 			transactions: [],
 			pageNumber: 1,
 			pageSize: 10,
@@ -22,7 +24,42 @@ class Ledger extends LedgerComponent {
 	}
 
 	componentDidMount() {
-		this.loadTransactions(this.state.pageNumber, this.state.pageSize);
+		var self = this;
+		
+		// get user settings
+		$.ajax({
+			type: 'get',
+			url: this.getConfig().baseURL + 'django_settings/'
+		}).done(function (data) {
+			console.log(JSON.stringify(data));
+			self.mergeState({ account: data.home_account }, () => {
+				self.loadAccounts();
+			});
+		}).fail(function (jqXHR, textStatus, errorThrown) {
+			self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
+		});
+	}
+	
+	loadAccount(newAccount) {
+		this.mergeState({ account: newAccount }, () => {
+			this.loadTransactions(this.state.pageNumber, this.state.pageSize);
+		});
+	}
+	
+	loadAccounts() {
+		var self = this;
+		
+		// get list of accounts
+		$.ajax({
+			type: 'get',
+			url: this.getConfig().baseURL + 'django_entities/'
+		}).done(function (data) {
+			self.mergeState({ accounts: data }, () => {
+				self.loadTransactions(self.state.pageNumber, self.state.pageSize);
+			});
+		}).fail(function (jqXHR, textStatus, errorThrown) {
+			self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
+		});
 	}
 	
 	loadTransactions(pageNumber, pageSize) {
@@ -31,7 +68,7 @@ class Ledger extends LedgerComponent {
 		$.ajax({
 			type: 'get',
 			url: this.getConfig().baseURL + 'django_ledger/',
-			data: 'pageNumber=' + pageNumber + '&pageSize=' + pageSize
+			data: 'pageNumber=' + pageNumber + '&pageSize=' + pageSize + '&entity=' + this.state.account
 		}).done(function (data) {
 			data['key'] = self.state.key + 1;
 			self.mergeState(data);
@@ -40,8 +77,14 @@ class Ledger extends LedgerComponent {
 		});		
 	}
 	
+	reloadTransactions(event) {
+		event.preventDefault();
+		
+		this.loadTransactions(this.state.pageNumber, this.state.pageSize);
+	}
+	
 	addTransaction() {
-		console.log('add transaction')
+		this.props.history.push(this.getParentMatchPath() + '/transactions/new');
 	}
 	
 	editTransaction(transId) {
@@ -86,6 +129,18 @@ class Ledger extends LedgerComponent {
 	render() {
 		return (
 			<Container fluid>
+				<Form inline onSubmit={(event) => this.reloadTransactions(event)}>
+					<Form.Label column sm={1}>Account</Form.Label>
+					<Col sm={4}>
+						<Form.Control as="select" value={this.state.account} onChange={(event) => this.loadAccount(event.target.value)}>
+							{this.state.accounts.map((entity) => {
+								return (
+									<option key={entity.pk} value={entity.pk}>{entity.fields.name}</option>
+								);										
+							})}
+						</Form.Control>
+					</Col>
+				</Form>
 				<Row>
 					<Col sm={12}>
 						<LedgerTable ledger={this} key={this.state.key}
