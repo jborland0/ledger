@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import DatePicker from "react-datepicker";
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import { Col, Container, Row, Table } from 'react-bootstrap';
@@ -12,15 +13,35 @@ class Ledger extends LedgerComponent {
   	constructor(props) {
 		super(props);
 		
+		// get current date info
+		var dtNow = new Date();
+		var month = dtNow.getMonth();
+		var year = dtNow.getFullYear();
+		
+		// construct date for 1st of month
+		var firstOfMonth = new Date(year, month, 1);
+		
+		// construct date for last of month
+		var lastOfMonth = new Date(firstOfMonth);
+		lastOfMonth = new Date(lastOfMonth.setMonth(lastOfMonth.getMonth()+1));
+		lastOfMonth = new Date(lastOfMonth.setDate(lastOfMonth.getDate()-1));
+		
 		this.state = {
 			key: 1,
 			account: 0,
 			accounts: [],
+			includeEstimates: false,
+			estimatesFrom: firstOfMonth,
+			estimatesTo: lastOfMonth,
 			transactions: [],
 			pageNumber: 1,
 			pageSize: 10,
 			pageCount: 1
 		};
+	}
+	
+	formatDate(date) {
+		return (date.getMonth() + 1) + '/' + date.getDate() + '/' + date.getFullYear();
 	}
 
 	componentDidMount() {
@@ -39,13 +60,7 @@ class Ledger extends LedgerComponent {
 			self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
 		});
 	}
-	
-	loadAccount(newAccount) {
-		this.mergeState({ account: newAccount }, () => {
-			this.loadTransactions(this.state.pageNumber, this.state.pageSize);
-		});
-	}
-	
+		
 	loadAccounts() {
 		var self = this;
 		
@@ -65,10 +80,16 @@ class Ledger extends LedgerComponent {
 	loadTransactions(pageNumber, pageSize) {
 		var self = this;
 		
+		if (!pageNumber) pageNumber = this.state.pageNumber;
+		if (!pageSize) pageSize = this.state.pageSize;
+		
 		$.ajax({
 			type: 'get',
 			url: this.getConfig().baseURL + 'django_ledger/',
-			data: 'pageNumber=' + pageNumber + '&pageSize=' + pageSize + '&entity=' + this.state.account
+			data: 'pageNumber=' + pageNumber + '&pageSize=' + pageSize + '&entity=' + 
+				this.state.account + '&includeEstimates=' + this.state.includeEstimates + 
+				'&estimatesFrom=' + this.formatDate(this.state.estimatesFrom) +
+				'&estimatesTo=' + this.formatDate(this.state.estimatesTo)
 		}).done(function (data) {
 			data['key'] = self.state.key + 1;
 			self.mergeState(data);
@@ -76,13 +97,7 @@ class Ledger extends LedgerComponent {
 			self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
 		});		
 	}
-	
-	reloadTransactions(event) {
-		event.preventDefault();
 		
-		this.loadTransactions(this.state.pageNumber, this.state.pageSize);
-	}
-	
 	addTransaction() {
 		this.props.history.push(this.getParentMatchPath() + '/transactions/new');
 	}
@@ -129,16 +144,33 @@ class Ledger extends LedgerComponent {
 	render() {
 		return (
 			<Container fluid>
-				<Form inline onSubmit={(event) => this.reloadTransactions(event)}>
+				<Form inline onSubmit={(event) => { event.preventDefault(); this.loadTransactions(); }}>
 					<Form.Label column sm={1}>Account</Form.Label>
 					<Col sm={4}>
-						<Form.Control as="select" value={this.state.account} onChange={(event) => this.loadAccount(event.target.value)}>
+						<Form.Control as="select" value={this.state.account} onChange={(event) => this.mergeState({ account: event.target.value}, () => this.loadTransactions())}>
 							{this.state.accounts.map((entity) => {
 								return (
 									<option key={entity.pk} value={entity.pk}>{entity.fields.name}</option>
 								);										
 							})}
 						</Form.Control>
+					</Col>
+					<Col sm={2}>
+						<Form.Check type="checkbox" label="Include estimates from" defaultChecked={this.state.includeEstimates} 
+							onChange={(event) => this.mergeState({ includeEstimates: event.target.checked }, () => this.loadTransactions())} />
+					</Col>
+					<Col sm={2}>
+						<DatePicker
+						  selected={this.state.estimatesFrom}
+						  onChange={(date) => this.mergeState({ estimatesFrom: date }, () => this.loadTransactions())}
+						/>
+					</Col>
+					<Form.Label column sm={1}>to</Form.Label>
+					<Col sm={2}>
+						<DatePicker
+						  selected={this.state.estimatesTo}
+						  onChange={(date) => this.mergeState({ estimatesTo: date }, () => this.loadTransactions())}
+						/>
 					</Col>
 				</Form>
 				<Row>
