@@ -136,34 +136,41 @@ const DndRow = ({ row, index, moveRow }) => {
   )
 }
 
-const LedgerTable = ({ ledger, transactions, propsPageNumber, propsPageSize, pageCount }) => {
+const LedgerTable = ({ ledger, transactions, transactionTypes, propsPageNumber, propsPageSize, pageCount }) => {
 	
-	const [pageNumber, setPageNumber] = React.useState(propsPageNumber)
-	const [pageSize, setPageSize] = React.useState(propsPageSize)
+	const [pageNumber, setPageNumber] = React.useState(propsPageNumber);
+	const [pageSize, setPageSize] = React.useState(propsPageSize);
 	
-	// const data = React.useMemo(() => transactions, [transactions]);
+	const formatString = (str, status) => {
+		if (status === 1) {
+			return (<div className='text-danger'>{str}</div>);
+		} else if (status === 2) {
+			return (<>{str}</>);
+		} else {
+			return (<div className='text-success'>{str}</div>);
+		}
+	};
 	
-	const formatDate = (datestr) => {
+	const formatDate = (dateobj) => {
 		var dateOptions = { day: '2-digit', month: '2-digit', year: '2-digit' };
 		var timeOptions = { hour12: true, hour: '2-digit', minute:'2-digit', second:'2-digit' };
-		var date = new Date(datestr);
-		return date.toLocaleDateString('en', dateOptions) + " " + 
-			date.toLocaleTimeString('en', timeOptions);
-	}
+		var date = new Date(dateobj.transdate);
+		var datestr = date.toLocaleDateString('en', dateOptions) + " " + date.toLocaleTimeString('en', timeOptions);
+		return formatString(datestr, dateobj.status);
+	};
 	
-	const formatCurrency = (pennies) => {
-		var dollars = parseFloat(pennies)/100.0;
-		return dollars.toLocaleString('en-US', { currency: 'USD', minimumFractionDigits: 2 });
-	}
-	
+	const formatCurrency = (amountobj) => {
+		var dollars = parseFloat(amountobj.amount)/100.0;
+		return formatString(dollars.toLocaleString('en-US', { currency: 'USD', minimumFractionDigits: 2 }), amountobj.status);
+	};
+		
 	const columns = React.useMemo(() => [
 	    { Header: <PlusSquare style={{ cursor: 'pointer' }} onClick={() => ledger.addTransaction()} />, accessor: 'id', 
 			Cell: props => <PencilSquare style={{ cursor: 'pointer' }} onClick={() => ledger.editTransaction(props.value)} /> },
-		{ Header: 'Date', accessor: 'transdate', 
-			Cell: props => <>{formatDate(props.value)}</> },
-		{ Header: 'From', accessor: 'sourcename' },
-		{ Header: 'To', accessor: 'destname' },
-		{ Header: 'Note', accessor: 'comments' },
+		{ Header: 'Date', accessor: 'transdate', Cell: props => formatDate(props.value) },
+		{ Header: 'From', accessor: 'sourcename', Cell: props => formatString(props.value.sourcename, props.value.status) },
+		{ Header: 'To', accessor: 'destname', Cell: props => formatString(props.value.destname, props.value.status) },
+		{ Header: 'Note', accessor: 'comments', Cell: props => formatString(props.value.comments, props.value.status) },
 		{ Header: <div className='text-right'>Amount</div>, accessor: 'amount',
 			Cell: props => <div className='text-right'>{formatCurrency(props.value)}</div> },
 		{ Header: 'Balance', accessor: 'balance' },

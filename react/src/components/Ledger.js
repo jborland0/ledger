@@ -34,6 +34,7 @@ class Ledger extends LedgerComponent {
 			estimatesFrom: firstOfMonth,
 			estimatesTo: lastOfMonth,
 			transactions: [],
+			transactionTypes: [],
 			pageNumber: 1,
 			pageSize: 10,
 			pageCount: 1
@@ -70,11 +71,27 @@ class Ledger extends LedgerComponent {
 			url: this.getConfig().baseURL + 'django_entities/'
 		}).done(function (data) {
 			self.mergeState({ accounts: data }, () => {
-				self.loadTransactions(self.state.pageNumber, self.state.pageSize);
+				self.loadTransactionTypes();
 			});
 		}).fail(function (jqXHR, textStatus, errorThrown) {
 			self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
 		});
+	}
+
+	loadTransactionTypes() {
+		var self = this;
+		
+		// get list of transaction types
+		$.ajax({
+			type: 'get',
+			url: this.getConfig().baseURL + 'django_transactiontypes/'
+		}).done(function (data) {
+			self.mergeState({ transactiontypes: data }, () => {
+				self.loadTransactions(self.state.pageNumber, self.state.pageSize);
+			});
+		}).fail(function (jqXHR, textStatus, errorThrown) {
+			self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
+		});	
 	}
 	
 	loadTransactions(pageNumber, pageSize) {
@@ -92,6 +109,31 @@ class Ledger extends LedgerComponent {
 				'&estimatesTo=' + this.formatDate(this.state.estimatesTo)
 		}).done(function (data) {
 			data['key'] = self.state.key + 1;
+			// loop over transactions
+			for (var i = 0; i < data.transactions.length; i++) {
+				// add transaction type to all displayed fields
+				data.transactions[i].transdate = {
+					transdate: data.transactions[i].transdate,
+					status: data.transactions[i].status
+				};
+				data.transactions[i].sourcename = {
+					sourcename: data.transactions[i].sourcename,
+					status: data.transactions[i].status
+				};
+				data.transactions[i].destname = {
+					destname: data.transactions[i].destname,
+					status: data.transactions[i].status
+				};
+				data.transactions[i].comments = {
+					comments: data.transactions[i].comments,
+					status: data.transactions[i].status
+				};
+				data.transactions[i].amount = {
+					amount: data.transactions[i].amount,
+					status: data.transactions[i].status
+				};
+			}
+			
 			self.mergeState(data);
 		}).fail(function (jqXHR, textStatus, errorThrown) {
 			self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
@@ -175,8 +217,8 @@ class Ledger extends LedgerComponent {
 				</Form>
 				<Row>
 					<Col sm={12}>
-						<LedgerTable ledger={this} key={this.state.key}
-						  transactions={this.state.transactions} propsPageNumber={this.state.pageNumber} 
+						<LedgerTable ledger={this} key={this.state.key} transactions={this.state.transactions} 
+						  transactionTypes={this.state.transactiontypes} propsPageNumber={this.state.pageNumber} 
 						  propsPageSize={this.state.pageSize} pageCount={this.state.pageCount}/>
 					</Col>
 				</Row>

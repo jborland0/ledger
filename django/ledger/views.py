@@ -1,3 +1,5 @@
+from datetime import datetime
+from distutils.util import strtobool
 from django.db import transaction
 from django.db.models import F
 from django.shortcuts import render
@@ -11,6 +13,7 @@ from django.db import connection
 import json
 from ledger.models import Entity, Ledger, TransactionType
 import math
+from . import ledger
 
 def index(request):
 	return render(request, 'ledger/index.html')
@@ -42,35 +45,44 @@ def django_getuser(request):
 		return JsonResponse({ 'id': -1, 'username': '' })
 
 def django_ledger(request):
+	# convert string params to native types
 	pageNumber = int(request.GET.get('pageNumber', '1'))
 	pageSize = int(request.GET.get('pageSize', '10'))
 	entity = int(request.GET.get('entity', '0'))
+	includeEstimates = bool(strtobool(request.GET.get('includeEstimates')))
+	if includeEstimates:
+		transactionTypes = None
+	else:
+		transactionTypes = [1,2,3]
+	if includeEstimates and len(request.GET.get('estimatesFrom', '')) > 0:
+		estimatesFrom = datetime.strptime(request.GET.get('estimatesFrom', ''), '%m/%d/%Y')
+	else:
+		estimatesFrom = None
+	if includeEstimates and len(request.GET.get('estimatesTo', '')) > 0:
+		estimatesTo = datetime.strptime(request.GET.get('estimatesTo', ''), '%m/%d/%Y')
+	else:
+		estimatesTo = None
 	transactions = []
 	if request.user.is_authenticated:
-		with connection.cursor() as cursor:
-			cursor.execute("SELECT * FROM ledger_ledgerdisplay WHERE user_id = %s and (transsource_id = %s or transdest_id = %s) ORDER BY transdate desc", [request.user.id, entity, entity])
-			rows = cursor.fetchall()
-			# calculate total number of pages
-			rowCount = len(rows)
-			pageCount = math.ceil(rowCount/pageSize)
-			# make sure requested page is in range
-			# special case -1 indicates last page
-			if pageNumber == -1 or pageNumber > pageCount:				
-				pageNumber = pageCount
-			elif pageNumber < 1:
-				pageNumber = 1
-			# calculate start and end indices
-			startIndex = (pageNumber - 1) * pageSize
-			endIndex = startIndex + pageSize
-			if endIndex > rowCount:
-				endIndex = rowCount
-			# reduce rows to page we want
-			rows = rows[startIndex:endIndex]
-			# turn rows into dictionaries so they can be converted to json
-			keys = ('id','checknum','comments','amount','status','transdate','fitid','transdest_id','transsource_id','user_id','sourcename','destname')
-			for row in rows:
-				transactions.append(dict(zip(keys,row)))
-			# create dictionary for response
+		# load transactions for specified entity
+		transactions = ledger.load_for_entity(request.user.id, entity, transactionTypes, estimatesFrom, estimatesTo)
+		# calculate total number of pages
+		rowCount = len(transactions)
+		pageCount = math.ceil(rowCount/pageSize)
+		# make sure requested page is in range
+		# special case -1 indicates last page
+		if pageNumber == -1 or pageNumber > pageCount:				
+			pageNumber = pageCount
+		elif pageNumber < 1:
+			pageNumber = 1
+		# calculate start and end indices
+		startIndex = (pageNumber - 1) * pageSize
+		endIndex = startIndex + pageSize
+		if endIndex > rowCount:
+			endIndex = rowCount
+		# reduce transactions to page we want
+		transactions = transactions[startIndex:endIndex]
+		# create dictionary for response
 	responseData = { 'pageNumber': pageNumber, 'pageSize': pageSize, 'pageCount': pageCount, 'transactions': transactions }
 	return HttpResponse(json.dumps(responseData,cls=DjangoJSONEncoder), content_type='application/json')
 
