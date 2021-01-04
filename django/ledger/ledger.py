@@ -1,7 +1,10 @@
 from django.db import connection
+from . import transactions
+import copy
+from datetime import datetime
 
 def load_for_entity(user, entity, transactionTypes, estimatesFrom, estimatesTo): 
-	transactions = []
+	transList = []
 	with connection.cursor() as cursor:
 		# create initial SQL param list
 		sqlparams = [user, entity, entity]
@@ -21,5 +24,34 @@ def load_for_entity(user, entity, transactionTypes, estimatesFrom, estimatesTo):
 		# turn rows into dictionaries so they can be converted to json
 		keys = ('id','checknum','comments','amount','status','transdate','fitid','transdest_id','transsource_id','user_id','sourcename','destname')
 		for row in rows:
-			transactions.append(dict(zip(keys,row)))
-	return transactions
+			# generate the transactions represented by this row
+			transaction = generate_transaction_list(user, entity, dict(zip(keys,row)), estimatesFrom, estimatesTo)
+			for trans in transaction:
+				transactions.insert_date_ordered(transList, trans)
+	# return in descending order
+	transList.reverse()
+	print(transList[0]['transdate'].strftime('%m/%d/%Y'))
+	return transList
+
+def generate_transaction_list(user, entity, transaction, estimatesFrom, estimatesTo):
+	transList = []
+	if transactions.is_recurring_estimate(transaction['status']):
+		# increment estimate date until it's >= "from" date
+		estimateDate = transaction['transdate']
+		while transactions.compare_date_only(estimateDate, estimatesFrom) < 0:
+			estimateDate = transactions.increment_estimate_date(estimateDate, transaction['status'])
+		# append index to make sure id's are unique
+		uniqueIdx = 0
+		# add transactions until we are > "to" date
+		while transactions.compare_date_only(estimateDate, estimatesTo) <= 0:
+			# add copy of transaction
+			newTrans = copy.deepcopy(transaction)
+			newTrans['id'] = str(newTrans['id']) + '_' + str(uniqueIdx)
+			newTrans['transdate'] = estimateDate
+			transList.append(newTrans)
+			uniqueIdx = uniqueIdx + 1
+			estimateDate = transactions.increment_estimate_date(estimateDate, transaction['status'])
+	else:
+		# return list with single transaction
+		transList.append(transaction)
+	return transList
