@@ -27,10 +27,25 @@ def load_for_entity(user, entity, transactionTypes, estimatesFrom, estimatesTo):
 			# generate the transactions represented by this row
 			transaction = generate_transaction_list(user, entity, dict(zip(keys,row)), estimatesFrom, estimatesTo)
 			for trans in transaction:
-				transactions.insert_date_ordered(transList, trans)
-	# return in descending order
-	transList.reverse()
-	print(transList[0]['transdate'].strftime('%m/%d/%Y'))
+				transactions.insert_date_ordered_desc(transList, trans)
+		# second pass to calculate running balances
+		balance = 0
+		reconciledBalance = 0
+		for trans in reversed(transList):
+			# if the transfer is not to the same account
+			if (trans['transsource_id'] != trans['transdest_id']):
+				if (trans['transsource_id'] == entity):
+					# money is leaving the account
+					balance -= trans['amount']
+					if (trans['status'] == transactions.Status.RECONCILED):
+						reconciledBalance -= trans['amount']
+				else:
+					# money is entering the account
+					balance += trans['amount']
+					if (trans['status'] == transactions.Status.RECONCILED):
+						reconciledBalance += trans['amount']
+			trans['balance'] = balance
+			trans['reconciled'] = reconciledBalance
 	return transList
 
 def generate_transaction_list(user, entity, transaction, estimatesFrom, estimatesTo):
@@ -38,6 +53,7 @@ def generate_transaction_list(user, entity, transaction, estimatesFrom, estimate
 	if transactions.is_recurring_estimate(transaction['status']):
 		# increment estimate date until it's >= "from" date
 		estimateDate = transaction['transdate']
+		print('starting with estimate date ' + estimateDate.strftime('%m/%d/%Y'))
 		while transactions.compare_date_only(estimateDate, estimatesFrom) < 0:
 			estimateDate = transactions.increment_estimate_date(estimateDate, transaction['status'])
 		# append index to make sure id's are unique

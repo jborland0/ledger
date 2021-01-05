@@ -132,6 +132,14 @@ class Ledger extends LedgerComponent {
 					amount: data.transactions[i].amount,
 					status: data.transactions[i].status
 				};
+				data.transactions[i].balance = {
+					balance: data.transactions[i].balance,
+					status: data.transactions[i].status
+				};
+				data.transactions[i].reconciled = {
+					reconciled: data.transactions[i].reconciled,
+					status: data.transactions[i].status
+				};
 			}
 			
 			self.mergeState(data);

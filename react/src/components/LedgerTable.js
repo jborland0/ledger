@@ -159,9 +159,9 @@ const LedgerTable = ({ ledger, transactions, transactionTypes, propsPageNumber, 
 		return formatString(datestr, dateobj.status);
 	};
 	
-	const formatCurrency = (amountobj) => {
-		var dollars = parseFloat(amountobj.amount)/100.0;
-		return formatString(dollars.toLocaleString('en-US', { currency: 'USD', minimumFractionDigits: 2 }), amountobj.status);
+	const formatCurrency = (amount, status) => {
+		var dollars = parseFloat(amount)/100.0;
+		return formatString(dollars.toLocaleString('en-US', { currency: 'USD', minimumFractionDigits: 2 }), status);
 	};
 		
 	const columns = React.useMemo(() => [
@@ -172,9 +172,11 @@ const LedgerTable = ({ ledger, transactions, transactionTypes, propsPageNumber, 
 		{ Header: 'To', accessor: 'destname', Cell: props => formatString(props.value.destname, props.value.status) },
 		{ Header: 'Note', accessor: 'comments', Cell: props => formatString(props.value.comments, props.value.status) },
 		{ Header: <div className='text-right'>Amount</div>, accessor: 'amount',
-			Cell: props => <div className='text-right'>{formatCurrency(props.value)}</div> },
-		{ Header: 'Balance', accessor: 'balance' },
-		{ Header: 'Reconciled', accessor: 'reconciled' }
+			Cell: props => <div className='text-right'>{formatCurrency(props.value.amount, props.value.status)}</div> },
+		{ Header: <div className='text-right'>Balance</div>, accessor: 'balance',
+			Cell: props => <div className='text-right'>{formatCurrency(props.value.balance, props.value.status)}</div> },
+		{ Header: <div className='text-right'>Reconciled</div>, accessor: 'reconciled',
+			Cell: props => <div className='text-right'>{formatCurrency(props.value.reconciled, props.value.status)}</div> }
 	], []);	
 	
 	return (

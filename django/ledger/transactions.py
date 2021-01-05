@@ -79,6 +79,21 @@ def insert_date_ordered(transactions, transaction):
 		mid = (left + right) // 2
 	transactions.insert(mid, transaction)
 
+def insert_date_ordered_desc(transactions, transaction):
+	# binary search to find insertion point
+	left = 0
+	right = len(transactions)
+	mid = (left + right) // 2
+	while left != right:
+		if transaction['transdate'] > transactions[mid]['transdate']:
+			right = mid
+		elif transaction['transdate'] < transactions[mid]['transdate']:
+			left = mid + 1
+		else:
+			break
+		mid = (left + right) // 2
+	transactions.insert(mid, transaction)
+
 def is_recurring_estimate(status):
 	return (status == Status.ESTIMATE_YEARLY or
 			status == Status.ESTIMATE_QUARTERLY or
