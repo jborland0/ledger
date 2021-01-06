@@ -2,6 +2,8 @@ from django.db import connection
 from . import transactions
 import copy
 from datetime import datetime
+from datetime import timedelta
+from ledger.models import Entity
 
 def load_for_entity(user, entity, transactionTypes, estimatesFrom, estimatesTo): 
 	transList = []
@@ -53,7 +55,6 @@ def generate_transaction_list(user, entity, transaction, estimatesFrom, estimate
 	if transactions.is_recurring_estimate(transaction['status']):
 		# increment estimate date until it's >= "from" date
 		estimateDate = transaction['transdate']
-		print('starting with estimate date ' + estimateDate.strftime('%m/%d/%Y'))
 		while transactions.compare_date_only(estimateDate, estimatesFrom) < 0:
 			estimateDate = transactions.increment_estimate_date(estimateDate, transaction['status'])
 		# append index to make sure id's are unique
@@ -65,8 +66,57 @@ def generate_transaction_list(user, entity, transaction, estimatesFrom, estimate
 			newTrans['id'] = str(newTrans['id']) + '_' + str(uniqueIdx)
 			newTrans['transdate'] = estimateDate
 			transList.append(newTrans)
-			uniqueIdx = uniqueIdx + 1
+			uniqueIdx += 1
 			estimateDate = transactions.increment_estimate_date(estimateDate, transaction['status'])
+	elif transaction['status'] == transactions.Status.BUDGET_BIWEEKLY:
+		# increment trans date until it's > today
+		# that will be the end of our budgeting period
+		budgetStop = transaction['transdate']
+		midnightTomorrow = datetime.strptime((datetime.now() + timedelta(days=1)).strftime('%m/%d/%Y'), '%m/%d/%Y')
+		while transactions.compare_date_only(budgetStop, midnightTomorrow) < 0:
+			budgetStop = transactions.increment_estimate_date(budgetStop, transaction['status'])
+		# find a date that is two weeks before budgetStop.
+		# that is the beginning of our budgeting period.
+		budgetStart = budgetStop - timedelta(days=14)
+		# add up everything from the past two weeks with this same source &
+		# destination. Subtract it from the budget, with a minimum of 
+		# zero since we don't want the budget to go negative - that
+		# would add phantom money to the account.
+		uniqueIdx = 0
+		while transactions.compare_date_only(budgetStop, estimatesTo) <= 0:
+			# change of plans - don't just add up this destination, 
+			# add up all destinations with the same category as this one.
+			categoryId = Entity.objects.filter(id=transaction['transdest_id'])[0].category.id
+			# rsCategory = stmt.executeQuery("SELECT id FROM ledger_entity WHERE category = " + categoryId);
+			entities = Entity.objects.filter(category__id=categoryId)
+			entityList = ''
+			for entity in entities:
+				if len(entityList) > 0:
+					entityList += ','
+				entityList += str(entity.id)
+			sumSoFar = 0
+			with connection.cursor() as cursor:
+				cursor.execute('SELECT sum(amount) AS sum_so_far FROM ledger_ledger ' +
+					'WHERE transsource_id = %s AND transdest_id IN (' + entityList + ') ' +
+					'AND transdate >= %s AND transdate < %s AND id != %s',
+					[transaction['transsource_id'], datetime.strptime(budgetStart.strftime('%m/%d/%Y'), '%m/%d/%Y'),
+					datetime.strptime((budgetStop + timedelta(days=1)).strftime('%m/%d/%Y'), '%m/%d/%Y'), transaction['id']])
+				for row in cursor:
+					if row[0] != None:
+						sumSoFar = row[0]
+			remaining = transaction['amount'] - sumSoFar
+			if remaining < 0:
+				remaining = 0
+			# insert copy of transaction with values for this budgeting period
+			newTrans = copy.deepcopy(transaction)
+			newTrans['id'] = str(newTrans['id']) + '_' + str(uniqueIdx)
+			newTrans['transdate'] = budgetStop
+			newTrans['amount'] = remaining
+			transList.append(newTrans)
+			uniqueIdx += 1
+			# move to next budgeting period
+			budgetStart = budgetStop
+			budgetStop = budgetStart + timedelta(days=14)
 	else:
 		# return list with single transaction
 		transList.append(transaction)
