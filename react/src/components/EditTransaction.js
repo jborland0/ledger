@@ -72,21 +72,32 @@ class EditTransaction extends LedgerComponent {
 		var self = this;
 		event.preventDefault();
 		
-		console.log(this.state);
+		// create object representing just the transaction
+		var transaction = {
+			id: this.props.match.params.transactionId,
+			transdate: this.state.date,
+			checknum: this.state.checknum,
+			transsource: this.state.transsource,
+			transdest: this.state.transdest,
+			comment: this.state.comment,
+			amount: this.state.amount,
+			status: this.state.status
+		};
 		
-		/*
 		$.ajax({
 			type: 'post',
-			url: this.getConfig().baseURL + 'login/',
-			data: JSON.stringify(this.state)
+			url: this.getConfig().baseURL + 'django_updatetransaction/',
+			data: JSON.stringify(transaction)
 		}).done(function (data) {
-			self.setUser(data);
-			self.mergeState({ username: '', password: '' });
-			self.props.history.push(self.getParentMatchPath() + '/transactions');
+			if (data.success) {
+				self.props.history.push(self.getParentMatchPath() + '/transactions');
+			} else {
+				console.log(data.message);
+				self.showAlert('Transaction Save Error', data.message);
+			}
 		}).fail(function (jqXHR, textStatus, errorThrown) {
 			self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
 		});
-		*/
 	}
 
 	render() {

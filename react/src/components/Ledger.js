@@ -153,6 +153,15 @@ class Ledger extends LedgerComponent {
 	}
 	
 	editTransaction(transId) {
+		// look for suffix on the ID
+		var suffixStartIdx = transId.indexOf('_');
+		
+		// if there is a suffix
+		if (suffixStartIdx >= 0) {
+			// strip it off so we are editing the original transaction
+			transId = transId.substring(0, suffixStartIdx);
+		}
+		
 		this.props.history.push(this.getParentMatchPath() + '/transactions/' + transId);
 	}
 	

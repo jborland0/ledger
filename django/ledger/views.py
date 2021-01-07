@@ -14,6 +14,7 @@ import json
 from ledger.models import Entity, Ledger, TransactionType
 import math
 from . import ledger
+from datetime import datetime
 
 def index(request):
 	return render(request, 'ledger/index.html')
@@ -111,7 +112,6 @@ def django_register(request):
 	messages = {}
 	# load request data
 	data = json.loads(request.body)
-	print(str(data))
 	# trim all strings
 	for key in data.keys():
 		data[key] = data[key].strip()
@@ -153,3 +153,29 @@ def django_transactiontypes(request):
 	types = TransactionType.objects.order_by('id')
 	types_list = serializers.serialize('json', types)
 	return HttpResponse(types_list, content_type='application/json')
+
+def django_updatetransaction(request):
+	success = False
+	message = 'An unknown error occurred'
+	if request.user.is_authenticated:
+		data = json.loads(request.body)
+		# load the transaction that we are updating
+		transactions = Ledger.objects.filter(id=data['id'])
+		if len(transactions) == 1:
+			transaction = transactions[0]
+			transaction.checknum = data['checknum']
+			transaction.transdate = datetime.strptime(data['transdate'].replace('Z', 'UTC'), '%Y-%m-%dT%H:%M:%S.%f%Z')
+			transaction.transsource = Entity.objects.filter(id=data['transsource'])[0]
+			transaction.transdest = Entity.objects.filter(id=data['transdest'])[0]
+			transaction.comments = data['comment']
+			transaction.amount = data['amount']
+			status = TransactionType.objects.filter(id=data['status'])[0]
+			print(transaction.transdate)
+			transaction.save()
+			success = True
+			message = 'Transaction updated successfully'
+		else:
+			message = 'Expected 1 transaction but found ' + str(len(transactions))
+	else:
+		message = 'Not authenticated'
+	return JsonResponse({ 'success' : success, 'message': message })
