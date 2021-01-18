@@ -153,8 +153,9 @@ class Ledger extends LedgerComponent {
 	}
 	
 	editTransaction(transId) {
+
 		// look for suffix on the ID
-		var suffixStartIdx = transId.indexOf('_');
+		var suffixStartIdx = ('' + transId).indexOf('_');
 		
 		// if there is a suffix
 		if (suffixStartIdx >= 0) {

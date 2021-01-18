@@ -54,7 +54,7 @@ class EditTransaction extends LedgerComponent {
 			}).done(function (data) {
 				var transaction = data[0];
 				self.mergeState({
-					date: new Date(transaction.transdate),
+					date: new Date(transaction.transdate + 'Z'),
 					checknum: transaction.checknum,
 					transsource: transaction.transsource_id,
 					transdest: transaction.transdest_id,

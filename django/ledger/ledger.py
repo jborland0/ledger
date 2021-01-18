@@ -3,6 +3,8 @@ from . import transactions
 import copy
 from datetime import datetime
 from datetime import timedelta
+from django.utils import timezone
+import pytz
 from ledger.models import Entity
 
 def load_for_entity(user, entity, transactionTypes, estimatesFrom, estimatesTo): 
@@ -26,8 +28,12 @@ def load_for_entity(user, entity, transactionTypes, estimatesFrom, estimatesTo):
 		# turn rows into dictionaries so they can be converted to json
 		keys = ('id','checknum','comments','amount','status','transdate','fitid','transdest_id','transsource_id','user_id','sourcename','destname')
 		for row in rows:
+			# create dictionary for transaction
+			transdict = dict(zip(keys,row))
+			# make transaction date timezone-aware
+			transdict['transdate'] = timezone.make_aware(transdict['transdate'], pytz.UTC)
 			# generate the transactions represented by this row
-			transaction = generate_transaction_list(user, entity, dict(zip(keys,row)), estimatesFrom, estimatesTo)
+			transaction = generate_transaction_list(user, entity, transdict, estimatesFrom, estimatesTo)
 			for trans in transaction:
 				transactions.insert_date_ordered_desc(transList, trans)
 		# second pass to calculate running balances

@@ -1,4 +1,6 @@
 from datetime import datetime
+from django.utils import timezone
+import pytz
 from distutils.util import strtobool
 from django.db import transaction
 from django.db.models import F
@@ -164,13 +166,12 @@ def django_updatetransaction(request):
 		if len(transactions) == 1:
 			transaction = transactions[0]
 			transaction.checknum = data['checknum']
-			transaction.transdate = datetime.strptime(data['transdate'].replace('Z', 'UTC'), '%Y-%m-%dT%H:%M:%S.%f%Z')
+			transaction.transdate = timezone.make_aware(datetime.strptime(data['transdate'].replace('Z', 'UTC'), '%Y-%m-%dT%H:%M:%S.%f%Z'), pytz.UTC)
 			transaction.transsource = Entity.objects.filter(id=data['transsource'])[0]
 			transaction.transdest = Entity.objects.filter(id=data['transdest'])[0]
 			transaction.comments = data['comment']
 			transaction.amount = data['amount']
 			status = TransactionType.objects.filter(id=data['status'])[0]
-			print(transaction.transdate)
 			transaction.save()
 			success = True
 			message = 'Transaction updated successfully'
