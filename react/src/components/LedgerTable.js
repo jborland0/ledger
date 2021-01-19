@@ -6,7 +6,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { Button, Col, Container, Form, Row, Table } from 'react-bootstrap';
 import { ChevronDoubleLeft, ChevronDoubleRight, ChevronLeft, ChevronRight, GripHorizontal, PencilSquare, PlusSquare } from 'react-bootstrap-icons'
 
-const DndTable = ({ columns, data }) => {
+const DndTable = ({ ledger, columns, data }) => {
   const [records, setRecords] = React.useState(data)
 
   const getRowId = React.useCallback(row => {
@@ -35,6 +35,7 @@ const DndTable = ({ columns, data }) => {
         ],
       })
     )
+	ledger.moveTransaction(dragRecord.id, dragIndex - hoverIndex)
   }
 
   return (
@@ -54,6 +55,7 @@ const DndTable = ({ columns, data }) => {
             (row, index) =>
               prepareRow(row) || (
                 <DndRow
+				  ledger={ledger}
                   index={index}
                   row={row}
                   moveRow={moveRow}
@@ -68,7 +70,7 @@ const DndTable = ({ columns, data }) => {
 
 const DND_ITEM_TYPE = 'row'
 
-const DndRow = ({ row, index, moveRow }) => {
+const DndRow = ({ ledger, row, index, moveRow }) => {
   const dropRef = React.useRef(null)
   const dragRef = React.useRef(null)
 
@@ -112,6 +114,9 @@ const DndRow = ({ row, index, moveRow }) => {
       // to avoid expensive index searches.
       item.index = hoverIndex
     },
+	drop(item, monitor) {
+		ledger.dropTransaction()
+	}
   })
 
   const [{ isDragging }, drag, preview] = useDrag({
@@ -183,7 +188,7 @@ const LedgerTable = ({ ledger, transactions, transactionTypes, propsPageNumber, 
 	  <Container fluid>
 		<Row>
 		  <Col sm={12}>
-		    <DndTable columns={columns} data={transactions} />
+		    <DndTable ledger={ledger} columns={columns} data={transactions} />
 		  </Col>
 		</Row>
 	    <Row>

@@ -5,7 +5,7 @@ from datetime import datetime
 from datetime import timedelta
 from django.utils import timezone
 import pytz
-from ledger.models import Entity
+from ledger.models import Entity, Ledger
 
 def load_for_entity(user, entity, transactionTypes, estimatesFrom, estimatesTo): 
 	transList = []
@@ -127,3 +127,29 @@ def generate_transaction_list(user, entity, transaction, estimatesFrom, estimate
 		# return list with single transaction
 		transList.append(transaction)
 	return transList
+
+def move_transaction_back(transId):
+	# get the transaction we are moving
+	transaction = Ledger.objects.get(id=transId)
+	# get the previous transaction by trans date
+	prev_trans = Ledger.objects.filter(transdate__lt=transaction.transdate).order_by('-transdate').first()
+	# swap the dates
+	temp_date = transaction.transdate
+	transaction.transdate = prev_trans.transdate
+	prev_trans.transdate = temp_date
+	# save changes
+	transaction.save()
+	prev_trans.save()
+
+def move_transaction_forward(transId):
+	# get the transaction we are moving
+	transaction = Ledger.objects.get(id=transId)
+	# get the next transaction by trans date
+	next_trans = Ledger.objects.filter(transdate__gt=transaction.transdate).order_by('transdate').first()
+	# swap the dates
+	temp_date = transaction.transdate
+	transaction.transdate = next_trans.transdate
+	next_trans.transdate = temp_date
+	# save changes
+	transaction.save()
+	next_trans.save()

@@ -10,6 +10,7 @@ urlpatterns = [
     path('django_ledger/', views.django_ledger, name='django_ledger'),
     path('django_login/', views.django_login, name='django_login'),
     path('django_logout/', views.django_logout, name='django_logout'),
+	path('django_movetransaction/', views.django_movetransaction, name='django_movetransaction'),
     path('django_register/', views.django_register, name='django_register'),
     path('django_settings/', views.django_settings, name='django_settings'),
     path('django_transactiontypes/', views.django_transactiontypes, name='django_transactiontypes'),

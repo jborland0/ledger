@@ -92,7 +92,6 @@ class EditTransaction extends LedgerComponent {
 			if (data.success) {
 				self.props.history.push(self.getParentMatchPath() + '/transactions');
 			} else {
-				console.log(data.message);
 				self.showAlert('Transaction Save Error', data.message);
 			}
 		}).fail(function (jqXHR, textStatus, errorThrown) {

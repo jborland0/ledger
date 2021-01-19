@@ -109,6 +109,31 @@ def django_logout(request):
 	else:
 		return JsonResponse({ 'success': False, 'message': 'user is not logged in' })
 
+def django_movetransaction(request):
+	success = False
+	message = 'An unknown error occurred'
+	if request.user.is_authenticated:
+		data = json.loads(request.body)
+		# get the transaction id and number of steps
+		transId = data['transId']
+		nSteps = data['nSteps']
+		# if moving the transaction forward
+		if nSteps > 0:
+			# for each step
+			for i in range (0, nSteps):
+				# move transaction forward
+				ledger.move_transaction_forward(transId)
+		else:
+			# for each step
+			for i in range(0, -nSteps):
+				# move transaction back
+				ledger.move_transaction_back(transId)
+		success = True
+		message = 'Transaction was moved successfully'
+	else:
+		message = 'Not authenticated'
+	return JsonResponse({ 'success' : success, 'message': message })
+
 def django_register(request):
 	# create dictionary for messages
 	messages = {}

@@ -37,7 +37,9 @@ class Ledger extends LedgerComponent {
 			transactionTypes: [],
 			pageNumber: 1,
 			pageSize: 10,
-			pageCount: 1
+			pageCount: 1,
+			moveTransactionId: 0,
+			moveSteps: 0
 		};
 	}
 	
@@ -53,7 +55,6 @@ class Ledger extends LedgerComponent {
 			type: 'get',
 			url: this.getConfig().baseURL + 'django_settings/'
 		}).done(function (data) {
-			console.log(JSON.stringify(data));
 			self.mergeState({ account: data.home_account }, () => {
 				self.loadAccounts();
 			});
@@ -164,6 +165,35 @@ class Ledger extends LedgerComponent {
 		}
 		
 		this.props.history.push(this.getParentMatchPath() + '/transactions/' + transId);
+	}
+	
+	moveTransaction(transId, nSteps) {
+		this.mergeState({ moveTransaction: transId, moveSteps: this.state.moveSteps + nSteps });
+	}
+	
+	dropTransaction() {
+		var self = this;
+		var moveTrans = {
+			transId: this.state.moveTransaction,
+			nSteps: this.state.moveSteps
+		};
+		this.mergeState({ moveTransaction: 0, moveSteps: 0 }, () => {
+			if (moveTrans.nSteps !== 0) {
+				$.ajax({
+					type: 'post',
+					url: this.getConfig().baseURL + 'django_movetransaction/',
+					data: JSON.stringify(moveTrans)
+				}).done(function (data) {
+					if (data.success) {
+						self.loadTransactions(self.state.pageNumber, self.state.pageSize);
+					} else {
+						self.showAlert('Move Transaction Error', data.message);
+					}
+				}).fail(function (jqXHR, textStatus, errorThrown) {
+					self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
+				});
+			}
+		});
 	}
 	
 	firstPage() {
