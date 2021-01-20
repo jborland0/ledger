@@ -4,7 +4,7 @@ import { useDrag, useDrop } from 'react-dnd';
 import update from 'immutability-helper';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { Button, Col, Container, Form, Row, Table } from 'react-bootstrap';
-import { ChevronDoubleLeft, ChevronDoubleRight, ChevronLeft, ChevronRight, GripHorizontal, PencilSquare, PlusSquare } from 'react-bootstrap-icons'
+import { ChevronDoubleLeft, ChevronDoubleRight, ChevronLeft, ChevronRight, GripHorizontal, PencilSquare, PlusSquare, Upload } from 'react-bootstrap-icons'
 
 const DndTable = ({ ledger, columns, data }) => {
   const [records, setRecords] = React.useState(data)
@@ -192,7 +192,10 @@ const LedgerTable = ({ ledger, transactions, transactionTypes, propsPageNumber, 
 		  </Col>
 		</Row>
 	    <Row>
-		  <Col sm={12} className='d-flex justify-content-center'>
+		  <Col sm={1}>
+			<Button variant='secondary' onClick={() => ledger.showUploadDialog()}><Upload /></Button>
+		  </Col>
+		  <Col sm={10} className='d-flex justify-content-center'>
 		    <Form inline>
 			  <Form.Group controlId='pageNumber'>
 				Page <Form.Control type="text" style={{ marginLeft: 5, marginRight: 5, width: 70 }} 

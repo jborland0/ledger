@@ -205,3 +205,10 @@ def django_updatetransaction(request):
 	else:
 		message = 'Not authenticated'
 	return JsonResponse({ 'success' : success, 'message': message })
+	
+def django_uploadtransactions(request):
+	file = request.FILES['file']
+	print(file.read())
+	success = True
+	message = 'File was uploaded successfully'
+	return JsonResponse({ 'success' : success, 'message': message })

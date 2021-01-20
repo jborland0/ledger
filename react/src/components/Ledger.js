@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import DatePicker from "react-datepicker";
 import Form from 'react-bootstrap/Form';
+import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
 import { Col, Container, Row, Table } from 'react-bootstrap';
 import LedgerComponent from './LedgerComponent';
@@ -39,7 +40,9 @@ class Ledger extends LedgerComponent {
 			pageSize: 10,
 			pageCount: 1,
 			moveTransactionId: 0,
-			moveSteps: 0
+			moveSteps: 0,
+			showUploadDialog: false,
+			selectedFile: null
 		};
 	}
 	
@@ -202,6 +205,13 @@ class Ledger extends LedgerComponent {
 		}
 	}
 	
+	onFileChange(event) {
+		var file = event.target.files[0];
+		// reject files that are too large
+		if (file.size > 10000000) file = null; 
+		this.mergeState({ selectedFile: file });
+	}
+	
 	previousPage() {
 		if (this.state.pageNumber > 1) {
 			this.loadTransactions(this.state.pageNumber - 1, this.state.pageSize);
@@ -230,9 +240,39 @@ class Ledger extends LedgerComponent {
 			this.loadTransactions(pageNumber, this.state.pageSize);
 		}
 	}
+	
+	showUploadDialog() {
+		this.mergeState({ showUploadDialog: true });
+	}
+	
+	uploadFile() {
+		var self = this;
+		this.mergeState({ showUploadDialog: false}, () => {
+			if (self.state.selectedFile !== null) {
+				var filedata = new FormData();
+				filedata.append('file', self.state.selectedFile);
+				$.ajax({
+					type: 'post',
+					url: self.getConfig().baseURL + 'django_uploadtransactions/',
+					data: filedata,
+					cache: false,
+					contentType: false,
+					processData: false
+				}).done(function (data) {
+					if (data.success) {
+						self.loadTransactions(self.state.pageNumber, self.state.pageSize);
+					} else {
+						self.showAlert('Upload Transactions Error', data.message);
+					}
+				}).fail(function (jqXHR, textStatus, errorThrown) {
+					self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
+				});
+			}
+		});
+	}
 
 	render() {
-		return (
+		return (<>
 			<Container fluid>
 				<Form inline onSubmit={(event) => { event.preventDefault(); this.loadTransactions(); }}>
 					<Form.Label column sm={1}>Account</Form.Label>
@@ -271,7 +311,25 @@ class Ledger extends LedgerComponent {
 					</Col>
 				</Row>
 			</Container>
-		);
+			<Modal show={this.state.showUploadDialog} onHide={() => this.mergeState({ showUploadDialog: false})}>
+				<Modal.Header closeButton>
+					<Modal.Title>Upload Transactions</Modal.Title>
+				</Modal.Header>
+
+				<Modal.Body>
+					<Form>
+					  <Form.Group>
+						<Form.File label="Select a .qfx file" onChange={(event) => this.onFileChange(event)} />
+					  </Form.Group>
+					</Form>
+				</Modal.Body>
+
+				<Modal.Footer>
+					<Button variant="primary" onClick={() => this.uploadFile()}>OK</Button>
+					<Button variant="secondary" onClick={() => this.mergeState({ showUploadDialog: false})}>Cancel</Button>
+				</Modal.Footer>
+			</Modal>
+		</>);
 	}
 }
 
