@@ -5,56 +5,35 @@ from datetime import datetime
 from datetime import timedelta
 from django.utils import timezone
 import pytz
-from ledger.models import Entity, Ledger
+from ledger.models import BanknameLookup, Entity, Ledger, TransactionType
+import xml.etree.ElementTree as ET
+from decimal import Decimal
 
-def load_for_entity(user, entity, transactionTypes, estimatesFrom, estimatesTo): 
-	transList = []
-	with connection.cursor() as cursor:
-		# create initial SQL param list
-		sqlparams = [user, entity, entity]
-		# create empty SQL transaction type list
-		transTypeListSQL = ''
-		if transactionTypes != None and len(transactionTypes) > 0:
-			# append to parameter array and SQL list
-			for transactionType in transactionTypes:
-				sqlparams.append(transactionType)
-				if len(transTypeListSQL) > 0:
-					transTypeListSQL += ','
-				transTypeListSQL += '%s'
-			# compose 'in' clause
-			transTypeListSQL = ' and status in (' + transTypeListSQL + ')'
-		cursor.execute('SELECT * FROM ledger_ledgerdisplay WHERE user_id = %s and (transsource_id = %s or transdest_id = %s)' + transTypeListSQL + ' ORDER BY transdate desc', sqlparams)
-		rows = cursor.fetchall()
-		# turn rows into dictionaries so they can be converted to json
-		keys = ('id','checknum','comments','amount','status','transdate','fitid','transdest_id','transsource_id','user_id','sourcename','destname')
-		for row in rows:
-			# create dictionary for transaction
-			transdict = dict(zip(keys,row))
-			# make transaction date timezone-aware
-			transdict['transdate'] = timezone.make_aware(transdict['transdate'], pytz.UTC)
-			# generate the transactions represented by this row
-			transaction = generate_transaction_list(user, entity, transdict, estimatesFrom, estimatesTo)
-			for trans in transaction:
-				transactions.insert_date_ordered_desc(transList, trans)
-		# second pass to calculate running balances
-		balance = 0
-		reconciledBalance = 0
-		for trans in reversed(transList):
-			# if the transfer is not to the same account
-			if (trans['transsource_id'] != trans['transdest_id']):
-				if (trans['transsource_id'] == entity):
-					# money is leaving the account
-					balance -= trans['amount']
-					if (trans['status'] == transactions.Status.RECONCILED):
-						reconciledBalance -= trans['amount']
+def collect_unterminated_tag_names(xmlStr):
+	unterminatedTagNames = []
+	terminatedTagNames = []
+	nextTagIdx = xmlStr.find('<')
+	while nextTagIdx != -1:
+		tagNameStartIdx = nextTagIdx + 1
+		tagNameEndIdx = xmlStr.find('>', tagNameStartIdx)
+		nextSearchStartIdx = tagNameEndIdx + 1
+		if xmlStr[tagNameStartIdx:tagNameStartIdx + 1] != '/':
+			tagName = xmlStr[tagNameStartIdx:tagNameEndIdx]
+			if not tagName in unterminatedTagNames and not tagName in terminatedTagNames:
+				endTag = '</' + tagName + '>'
+				endTagIdx = xmlStr.find(endTag, nextSearchStartIdx)
+				if endTagIdx == -1:
+					unterminatedTagNames.append(tagName)
 				else:
-					# money is entering the account
-					balance += trans['amount']
-					if (trans['status'] == transactions.Status.RECONCILED):
-						reconciledBalance += trans['amount']
-			trans['balance'] = balance
-			trans['reconciled'] = reconciledBalance
-	return transList
+					terminatedTagNames.append(tagName)
+		nextTagIdx = xmlStr.find('<', nextSearchStartIdx)
+	return unterminatedTagNames
+
+def fix_bank_xml(xmlStr):
+	unterminatedTagNames = collect_unterminated_tag_names(xmlStr)
+	for unterminatedTagName in unterminatedTagNames:
+		xmlStr = terminate_tags(xmlStr, unterminatedTagName)
+	return '<?xml version="1.0" encoding="UTF-8" standalone="no"?>' + xmlStr
 
 def generate_transaction_list(user, entity, transaction, estimatesFrom, estimatesTo):
 	transList = []
@@ -128,6 +107,107 @@ def generate_transaction_list(user, entity, transaction, estimatesFrom, estimate
 		transList.append(transaction)
 	return transList
 
+def import_transactions(qfx, user):
+	# locate top level tag and fix pseudo-xml so we can parse
+	ofxOpenIdx = qfx.find('<OFX>')
+	ofxCloseIdx = qfx.rfind('</OFX>')
+	if ofxOpenIdx == -1 or ofxCloseIdx == -1:
+		raise Exception('OFX tag not found in import file')
+	ofxTag = qfx[ofxOpenIdx:ofxCloseIdx + 6]
+	ofxXml = fix_bank_xml(ofxTag)
+	doc = ET.ElementTree(ET.fromstring(ofxXml))
+	transNodes = doc.findall('./BANKMSGSRSV1/STMTTRNRS/STMTRS/BANKTRANLIST/STMTTRN')
+	# find home and unknown accounts
+	with connection.cursor() as cursor:
+		cursor.execute("SELECT home_account, unknown_account FROM ledger_settings_id WHERE user_id = %s", [user.id])
+		rows = cursor.fetchall()
+		if len(rows) == 0:
+			raise Exception('Could not determine home and unknown accounts')
+		homeAccount = Entity.objects.filter(id=rows[0][0])[0]
+		unknownAccount = Entity.objects.filter(id=rows[0][1])[0]
+	transactionTypeNone = TransactionType.objects.filter(id=1)[0]
+	transactions = []
+	for transNode in transNodes:
+		# parse transaction fields
+		fitid = transNode.findall('./FITID')[0].text
+		transdate = timezone.make_aware(datetime.strptime(transNode.findall('./DTPOSTED')[0].text.replace('[0:GMT]', 'UTC'), '%Y%m%d%H%M%S.%f%Z'), pytz.UTC)
+		checknumNodes = transNode.findall('./CHECKNUM')
+		checknum = checknumNodes[0].text if (len(checknumNodes) > 0) else None
+		comments = transNode.findall('./NAME')[0].text.strip()
+		amount = int(Decimal(transNode.findall('./TRNAMT')[0].text) * 100)
+		# try looking up entity by bankname
+		banknameLookup = BanknameLookup.objects.filter(bankname=comments).first()
+		banknameEntity = unknownAccount if banknameLookup is None else banknameLookup.entity
+		# assign accounts depending on whether money is going in or out
+		if amount < 0:
+			transsource = homeAccount
+			transdest = banknameEntity
+			amount = -amount
+		else:
+			transsource = banknameEntity
+			transdest = homeAccount
+		transactions.append(Ledger(
+			checknum = checknum,
+			transsource = transsource,
+			transdest = transdest,
+			comments = comments,
+			amount = amount,
+			status = transactionTypeNone,
+			transdate = transdate,
+			fitid = fitid,
+			user = user
+		))
+	print(transactions[0].fitid)
+
+def load_for_entity(user, entity, transactionTypes, estimatesFrom, estimatesTo): 
+	transList = []
+	with connection.cursor() as cursor:
+		# create initial SQL param list
+		sqlparams = [user, entity, entity]
+		# create empty SQL transaction type list
+		transTypeListSQL = ''
+		if transactionTypes != None and len(transactionTypes) > 0:
+			# append to parameter array and SQL list
+			for transactionType in transactionTypes:
+				sqlparams.append(transactionType)
+				if len(transTypeListSQL) > 0:
+					transTypeListSQL += ','
+				transTypeListSQL += '%s'
+			# compose 'in' clause
+			transTypeListSQL = ' and status in (' + transTypeListSQL + ')'
+		cursor.execute('SELECT * FROM ledger_ledgerdisplay WHERE user_id = %s and (transsource_id = %s or transdest_id = %s)' + transTypeListSQL + ' ORDER BY transdate desc', sqlparams)
+		rows = cursor.fetchall()
+		# turn rows into dictionaries so they can be converted to json
+		keys = ('id','checknum','comments','amount','status','transdate','fitid','transdest_id','transsource_id','user_id','sourcename','destname')
+		for row in rows:
+			# create dictionary for transaction
+			transdict = dict(zip(keys,row))
+			# make transaction date timezone-aware
+			transdict['transdate'] = timezone.make_aware(transdict['transdate'], pytz.UTC)
+			# generate the transactions represented by this row
+			transaction = generate_transaction_list(user, entity, transdict, estimatesFrom, estimatesTo)
+			for trans in transaction:
+				transactions.insert_date_ordered_desc(transList, trans)
+		# second pass to calculate running balances
+		balance = 0
+		reconciledBalance = 0
+		for trans in reversed(transList):
+			# if the transfer is not to the same account
+			if (trans['transsource_id'] != trans['transdest_id']):
+				if (trans['transsource_id'] == entity):
+					# money is leaving the account
+					balance -= trans['amount']
+					if (trans['status'] == transactions.Status.RECONCILED):
+						reconciledBalance -= trans['amount']
+				else:
+					# money is entering the account
+					balance += trans['amount']
+					if (trans['status'] == transactions.Status.RECONCILED):
+						reconciledBalance += trans['amount']
+			trans['balance'] = balance
+			trans['reconciled'] = reconciledBalance
+	return transList
+
 def move_transaction_back(transId):
 	# get the transaction we are moving
 	transaction = Ledger.objects.get(id=transId)
@@ -153,3 +233,18 @@ def move_transaction_forward(transId):
 	# save changes
 	transaction.save()
 	next_trans.save()
+
+def terminate_tags(xmlStr, tagName):
+	startTag = '<' + tagName + '>'
+	endTag = '</' + tagName + '>'
+	searchFrom = 0
+	startTagIdx = xmlStr.find(startTag, searchFrom)
+	strbuf = ''
+	while startTagIdx != -1:
+		nextTagIdx = xmlStr.find('<', startTagIdx + len(startTag))
+		strbuf += xmlStr[searchFrom:nextTagIdx]
+		strbuf += endTag
+		searchFrom = nextTagIdx
+		startTagIdx = xmlStr.find(startTag, searchFrom)
+	strbuf += xmlStr[searchFrom:]
+	return strbuf

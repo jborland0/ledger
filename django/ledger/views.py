@@ -207,8 +207,12 @@ def django_updatetransaction(request):
 	return JsonResponse({ 'success' : success, 'message': message })
 	
 def django_uploadtransactions(request):
-	file = request.FILES['file']
-	print(file.read())
-	success = True
-	message = 'File was uploaded successfully'
-	return JsonResponse({ 'success' : success, 'message': message })
+	if request.user.is_authenticated:
+		try:
+			file = request.FILES['file']
+			ledger.import_transactions(str(file.read()), request.user)
+			return JsonResponse({ 'success': True, 'message': 'Transactions imported successfully' })
+		except Exception as e:
+			return JsonResponse({ 'success': False, 'message': str(e) })
+	else:
+		return JsonResponse({ 'success': False, 'message': 'Not authenticated' })
