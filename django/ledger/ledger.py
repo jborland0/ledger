@@ -9,6 +9,17 @@ from ledger.models import BanknameLookup, Entity, Ledger, TransactionType
 import xml.etree.ElementTree as ET
 from decimal import Decimal
 
+def bankname_to_regex(bankname):
+	newBankName = ''
+	for ch in bankname:
+		if ch.isdigit():
+			newBankName += '[0-9]'
+		elif ch == '*':
+			newBankName += '[*]'
+		else:
+			newBankName += ch
+	return newBankName
+
 def collect_unterminated_tag_names(xmlStr):
 	unterminatedTagNames = []
 	terminatedTagNames = []
@@ -108,56 +119,10 @@ def generate_transaction_list(user, entity, transaction, estimatesFrom, estimate
 	return transList
 
 def import_transactions(qfx, user):
-	# locate top level tag and fix pseudo-xml so we can parse
-	ofxOpenIdx = qfx.find('<OFX>')
-	ofxCloseIdx = qfx.rfind('</OFX>')
-	if ofxOpenIdx == -1 or ofxCloseIdx == -1:
-		raise Exception('OFX tag not found in import file')
-	ofxTag = qfx[ofxOpenIdx:ofxCloseIdx + 6]
-	ofxXml = fix_bank_xml(ofxTag)
-	doc = ET.ElementTree(ET.fromstring(ofxXml))
-	transNodes = doc.findall('./BANKMSGSRSV1/STMTTRNRS/STMTRS/BANKTRANLIST/STMTTRN')
-	# find home and unknown accounts
-	with connection.cursor() as cursor:
-		cursor.execute("SELECT home_account, unknown_account FROM ledger_settings_id WHERE user_id = %s", [user.id])
-		rows = cursor.fetchall()
-		if len(rows) == 0:
-			raise Exception('Could not determine home and unknown accounts')
-		homeAccount = Entity.objects.filter(id=rows[0][0])[0]
-		unknownAccount = Entity.objects.filter(id=rows[0][1])[0]
-	transactionTypeNone = TransactionType.objects.filter(id=1)[0]
-	transactions = []
-	for transNode in transNodes:
-		# parse transaction fields
-		fitid = transNode.findall('./FITID')[0].text
-		transdate = timezone.make_aware(datetime.strptime(transNode.findall('./DTPOSTED')[0].text.replace('[0:GMT]', 'UTC'), '%Y%m%d%H%M%S.%f%Z'), pytz.UTC)
-		checknumNodes = transNode.findall('./CHECKNUM')
-		checknum = checknumNodes[0].text if (len(checknumNodes) > 0) else None
-		comments = transNode.findall('./NAME')[0].text.strip()
-		amount = int(Decimal(transNode.findall('./TRNAMT')[0].text) * 100)
-		# try looking up entity by bankname
-		banknameLookup = BanknameLookup.objects.filter(bankname=comments).first()
-		banknameEntity = unknownAccount if banknameLookup is None else banknameLookup.entity
-		# assign accounts depending on whether money is going in or out
-		if amount < 0:
-			transsource = homeAccount
-			transdest = banknameEntity
-			amount = -amount
-		else:
-			transsource = banknameEntity
-			transdest = homeAccount
-		transactions.append(Ledger(
-			checknum = checknum,
-			transsource = transsource,
-			transdest = transdest,
-			comments = comments,
-			amount = amount,
-			status = transactionTypeNone,
-			transdate = transdate,
-			fitid = fitid,
-			user = user
-		))
-	print(transactions[0].fitid)
+	importedTransactions = qfx_to_transactions(qfx, user)
+	print(str(len(importedTransactions)) + ' imported transactions')
+	unreconciledTransactions = prune_reconciled_transactions(importedTransactions)
+	print(str(len(unreconciledTransactions)) + ' unreconciled transactions')
 
 def load_for_entity(user, entity, transactionTypes, estimatesFrom, estimatesTo): 
 	transList = []
@@ -233,6 +198,72 @@ def move_transaction_forward(transId):
 	# save changes
 	transaction.save()
 	next_trans.save()
+
+def prune_reconciled_transactions(transactions):
+	# create a list of fitids
+	fitids = []
+	for transaction in transactions:
+		fitids.append(transaction.fitid)
+	# select reconciled fitids from database
+	reconciledTransactions = Ledger.objects.filter(fitid__in=fitids)
+	reconciledFitids = []
+	for reconciledTransaction in reconciledTransactions:
+		reconciledFitids.append(reconciledTransaction.fitid)
+	# filter out reconciled transactions
+	unreconciledTransactions = [t for t in transactions if t.fitid not in reconciledFitids]
+	return unreconciledTransactions
+
+def qfx_to_transactions(qfx, user):
+	# locate top level tag and fix pseudo-xml so we can parse
+	ofxOpenIdx = qfx.find('<OFX>')
+	ofxCloseIdx = qfx.rfind('</OFX>')
+	if ofxOpenIdx == -1 or ofxCloseIdx == -1:
+		raise Exception('OFX tag not found in import file')
+	ofxTag = qfx[ofxOpenIdx:ofxCloseIdx + 6]
+	ofxXml = fix_bank_xml(ofxTag)
+	doc = ET.ElementTree(ET.fromstring(ofxXml))
+	transNodes = doc.findall('./BANKMSGSRSV1/STMTTRNRS/STMTRS/BANKTRANLIST/STMTTRN')
+	# find home and unknown accounts
+	with connection.cursor() as cursor:
+		cursor.execute("SELECT home_account, unknown_account FROM ledger_settings_id WHERE user_id = %s", [user.id])
+		rows = cursor.fetchall()
+		if len(rows) == 0:
+			raise Exception('Could not determine home and unknown accounts')
+		homeAccount = Entity.objects.filter(id=rows[0][0])[0]
+		unknownAccount = Entity.objects.filter(id=rows[0][1])[0]
+	transactionTypeNone = TransactionType.objects.filter(id=1)[0]
+	transactions = []
+	for transNode in transNodes:
+		# parse transaction fields
+		fitid = transNode.findall('./FITID')[0].text
+		transdate = timezone.make_aware(datetime.strptime(transNode.findall('./DTPOSTED')[0].text.replace('[0:GMT]', 'UTC'), '%Y%m%d%H%M%S.%f%Z'), pytz.UTC)
+		checknumNodes = transNode.findall('./CHECKNUM')
+		checknum = checknumNodes[0].text if (len(checknumNodes) > 0) else None
+		comments = bankname_to_regex(transNode.findall('./NAME')[0].text.strip())
+		amount = int(Decimal(transNode.findall('./TRNAMT')[0].text) * 100)
+		# try looking up entity by bankname
+		banknameLookup = BanknameLookup.objects.filter(bankname=comments).first()
+		banknameEntity = unknownAccount if banknameLookup is None else banknameLookup.entity
+		# assign accounts depending on whether money is going in or out
+		if amount < 0:
+			transsource = homeAccount
+			transdest = banknameEntity
+			amount = -amount
+		else:
+			transsource = banknameEntity
+			transdest = homeAccount
+		transactions.append(Ledger(
+			checknum = checknum,
+			transsource = transsource,
+			transdest = transdest,
+			comments = comments,
+			amount = amount,
+			status = transactionTypeNone,
+			transdate = transdate,
+			fitid = fitid,
+			user = user
+		))
+	return transactions
 
 def terminate_tags(xmlStr, tagName):
 	startTag = '<' + tagName + '>'
