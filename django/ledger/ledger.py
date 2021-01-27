@@ -1,4 +1,5 @@
 from django.db import connection
+from django.db.models import Q
 from . import transactions
 import copy
 from datetime import datetime
@@ -8,6 +9,7 @@ import pytz
 from ledger.models import BanknameLookup, Entity, Ledger, TransactionType
 import xml.etree.ElementTree as ET
 from decimal import Decimal
+import types
 
 def bankname_to_regex(bankname):
 	newBankName = ''
@@ -118,11 +120,32 @@ def generate_transaction_list(user, entity, transaction, estimatesFrom, estimate
 		transList.append(transaction)
 	return transList
 
+def get_user_settings(user):
+	settings = types.SimpleNamespace()
+	# find home and unknown accounts
+	with connection.cursor() as cursor:
+		cursor.execute("SELECT home_account, unknown_account FROM ledger_settings_id WHERE user_id = %s", [user.id])
+		rows = cursor.fetchall()
+		if len(rows) == 0:
+			raise Exception('Could not determine home and unknown accounts')
+		settings.homeAccount = Entity.objects.filter(id=rows[0][0])[0]
+		settings.unknownAccount = Entity.objects.filter(id=rows[0][1])[0]
+	settings.transactionTypeNone = TransactionType.objects.filter(id=1)[0]
+	return settings
+
 def import_transactions(qfx, user):
-	importedTransactions = qfx_to_transactions(qfx, user)
-	print(str(len(importedTransactions)) + ' imported transactions')
-	unreconciledTransactions = prune_reconciled_transactions(importedTransactions)
-	print(str(len(unreconciledTransactions)) + ' unreconciled transactions')
+	settings = get_user_settings(user)
+	# create list of qfx transactions that haven't been imported yet
+	qfxTransactions = qfx_to_transactions(qfx, user, settings)
+	newTransactions = prune_imported_transactions(qfxTransactions)
+	# get list of unreconciled transactions
+	unreconciledTransactions = list(Ledger.objects.filter((Q(transdest=settings.homeAccount) | Q(transsource=settings.homeAccount)) & 
+		Q(status=settings.transactionTypeNone.id)).order_by('-transdate'))
+	# create pairs of matching transactions
+	transactionPairs = pair_transactions(newTransactions, unreconciledTransactions)
+	# TODO perhaps display pairs to user, allow editing, etc
+	# for now... save the pairs
+	save_transaction_pairs(transactionPairs)
 
 def load_for_entity(user, entity, transactionTypes, estimatesFrom, estimatesTo): 
 	transList = []
@@ -140,7 +163,8 @@ def load_for_entity(user, entity, transactionTypes, estimatesFrom, estimatesTo):
 				transTypeListSQL += '%s'
 			# compose 'in' clause
 			transTypeListSQL = ' and status in (' + transTypeListSQL + ')'
-		cursor.execute('SELECT * FROM ledger_ledgerdisplay WHERE user_id = %s and (transsource_id = %s or transdest_id = %s)' + transTypeListSQL + ' ORDER BY transdate desc', sqlparams)
+		cursor.execute('SELECT * FROM ledger_ledgerdisplay WHERE user_id = %s and (transsource_id = %s or transdest_id = %s)' + 
+			transTypeListSQL + ' ORDER BY transdate desc', sqlparams)
 		rows = cursor.fetchall()
 		# turn rows into dictionaries so they can be converted to json
 		keys = ('id','checknum','comments','amount','status','transdate','fitid','transdest_id','transsource_id','user_id','sourcename','destname')
@@ -199,7 +223,51 @@ def move_transaction_forward(transId):
 	transaction.save()
 	next_trans.save()
 
-def prune_reconciled_transactions(transactions):
+def pair_transactions(newTransactions, unreconciledTransactions):
+	transactionPairs = []
+	# for each new bank transaction
+	for bankTrans in newTransactions:
+		localMatch = None
+		# for each local transaction in unreconciled transactions
+		for localTrans in unreconciledTransactions:
+			# if the amounts match
+			if bankTrans.amount == localTrans.amount:
+				# save the match
+				localMatch = localTrans
+		# if a match was found
+		if localMatch is not None:
+			# remove the match from the list of unreconciled transactions
+			unreconciledTransactions.remove(localMatch)
+			# add the pair to the list of transaction pairs
+			transactionPairs.append(types.SimpleNamespace(localTrans=localMatch, bankTrans=bankTrans))
+		else:
+			# no match for bank transaction; add it by itself
+			transactionPairs.append(types.SimpleNamespace(localTrans=None, bankTrans=bankTrans))
+	# for all the leftover unreconciled transactions
+	for localTrans in unreconciledTransactions:
+		# create a transaction pair with just the local transaction
+		unmatchedPair = types.SimpleNamespace(localTrans=localTrans, bankTrans=None)
+		unmatchedPairIdx = -1
+		# for each existing pair
+		for i in range(len(transactionPairs)):
+			transactionPair = transactionPairs[i]
+			# pick a date from the transaction pair
+			transPairDate = transactionPair.bankTrans.transdate if transactionPair.bankTrans is not None else transactionPair.localTrans.transdate
+			# if unmatched local transaction is after this pair
+			if unmatchedPair.localTrans.transdate > transPairDate:
+				# use this index
+				unmatchedPairIdx = i
+				break
+		# if a place to put the unmatched transaction was not found
+		if unmatchedPairIdx == -1:
+			# add it at the end
+			transactionPairs.append(unmatchedPair)
+		else:
+			# add it at the specified index
+			transactionPairs.insert(unmatchedPairIdx, unmatchedPair)
+	return transactionPairs
+
+def prune_imported_transactions(transactions):
 	# create a list of fitids
 	fitids = []
 	for transaction in transactions:
@@ -213,7 +281,7 @@ def prune_reconciled_transactions(transactions):
 	unreconciledTransactions = [t for t in transactions if t.fitid not in reconciledFitids]
 	return unreconciledTransactions
 
-def qfx_to_transactions(qfx, user):
+def qfx_to_transactions(qfx, user, settings):
 	# locate top level tag and fix pseudo-xml so we can parse
 	ofxOpenIdx = qfx.find('<OFX>')
 	ofxCloseIdx = qfx.rfind('</OFX>')
@@ -223,15 +291,6 @@ def qfx_to_transactions(qfx, user):
 	ofxXml = fix_bank_xml(ofxTag)
 	doc = ET.ElementTree(ET.fromstring(ofxXml))
 	transNodes = doc.findall('./BANKMSGSRSV1/STMTTRNRS/STMTRS/BANKTRANLIST/STMTTRN')
-	# find home and unknown accounts
-	with connection.cursor() as cursor:
-		cursor.execute("SELECT home_account, unknown_account FROM ledger_settings_id WHERE user_id = %s", [user.id])
-		rows = cursor.fetchall()
-		if len(rows) == 0:
-			raise Exception('Could not determine home and unknown accounts')
-		homeAccount = Entity.objects.filter(id=rows[0][0])[0]
-		unknownAccount = Entity.objects.filter(id=rows[0][1])[0]
-	transactionTypeNone = TransactionType.objects.filter(id=1)[0]
 	transactions = []
 	for transNode in transNodes:
 		# parse transaction fields
@@ -243,27 +302,44 @@ def qfx_to_transactions(qfx, user):
 		amount = int(Decimal(transNode.findall('./TRNAMT')[0].text) * 100)
 		# try looking up entity by bankname
 		banknameLookup = BanknameLookup.objects.filter(bankname=comments).first()
-		banknameEntity = unknownAccount if banknameLookup is None else banknameLookup.entity
+		banknameEntity = settings.unknownAccount if banknameLookup is None else banknameLookup.entity
 		# assign accounts depending on whether money is going in or out
 		if amount < 0:
-			transsource = homeAccount
+			transsource = settings.homeAccount
 			transdest = banknameEntity
 			amount = -amount
 		else:
 			transsource = banknameEntity
-			transdest = homeAccount
+			transdest = settings.homeAccount
 		transactions.append(Ledger(
 			checknum = checknum,
 			transsource = transsource,
 			transdest = transdest,
 			comments = comments,
 			amount = amount,
-			status = transactionTypeNone,
+			status = settings.transactionTypeNone.id,
 			transdate = transdate,
 			fitid = fitid,
 			user = user
 		))
 	return transactions
+
+def save_transaction_pairs(transactionPairs):
+	# for each transaction
+	for transPair in transactionPairs:				
+		# if there is a local transaction
+		if transPair.localTrans is not None:
+			# if there is a bank transaction
+			if transPair.bankTrans is not None:				
+				# copy bank fitid
+				transPair.localTrans.fitid = transPair.bankTrans.fitid
+				# update the transaction
+				transPair.localTrans.save()
+		else:
+			# if there is a bank transaction
+			if transPair.bankTrans is not None:
+				# save the bank transaction
+				transPair.bankTrans.save()
 
 def terminate_tags(xmlStr, tagName):
 	startTag = '<' + tagName + '>'
