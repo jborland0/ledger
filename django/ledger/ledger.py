@@ -131,6 +131,7 @@ def get_user_settings(user):
 		settings.homeAccount = Entity.objects.filter(id=rows[0][0])[0]
 		settings.unknownAccount = Entity.objects.filter(id=rows[0][1])[0]
 	settings.transactionTypeNone = TransactionType.objects.filter(id=1)[0]
+	settings.transactionTypeReconciled = TransactionType.objects.filter(id=2)[0]
 	return settings
 
 def import_transactions(qfx, user):
@@ -145,7 +146,7 @@ def import_transactions(qfx, user):
 	transactionPairs = pair_transactions(newTransactions, unreconciledTransactions)
 	# TODO perhaps display pairs to user, allow editing, etc
 	# for now... save the pairs
-	save_transaction_pairs(transactionPairs)
+	save_transaction_pairs(transactionPairs, settings)
 
 def load_for_entity(user, entity, transactionTypes, estimatesFrom, estimatesTo): 
 	transList = []
@@ -324,22 +325,33 @@ def qfx_to_transactions(qfx, user, settings):
 		))
 	return transactions
 
-def save_transaction_pairs(transactionPairs):
+def save_transaction_pairs(transactionPairs, settings):
 	# for each transaction
-	for transPair in transactionPairs:				
+	for transPair in transactionPairs:
+		saveLocalTrans = False
 		# if there is a local transaction
 		if transPair.localTrans is not None:
 			# if there is a bank transaction
 			if transPair.bankTrans is not None:				
 				# copy bank fitid
 				transPair.localTrans.fitid = transPair.bankTrans.fitid
-				# update the transaction
-				transPair.localTrans.save()
+				# indicate update
+				saveLocalTrans = True
 		else:
 			# if there is a bank transaction
 			if transPair.bankTrans is not None:
-				# save the bank transaction
-				transPair.bankTrans.save()
+				# use bank transaction as new local transaction
+				transPair.localTrans = transPair.bankTranks
+				# indicate update transaction
+				saveLocalTrans = True
+		# if we need to update the transaction
+		if saveLocalTrans:
+			# if both source and destination are known
+			if transPair.localTrans.transsource != settings.unknownAccount and transPair.localTrans.transdest != settings.unknownAccount:
+				# mark transaction as reconciled
+				transPair.localTrans.status = settings.transactionTypeReconciled.id
+			# update the transaction
+			transPair.localTrans.save()
 
 def terminate_tags(xmlStr, tagName):
 	startTag = '<' + tagName + '>'

@@ -124,7 +124,7 @@ class EditTransaction extends LedgerComponent {
 						<Col sm={2} />
 						<Form.Label column sm={1}>Check&nbsp;#</Form.Label>
 						<Col sm={2}>
-							<Form.Control type="text" onChange={(event) => this.mergeState({ checknum: event.target.value })}/>
+							<Form.Control type="text" value={this.state.checknum} onChange={(event) => this.mergeState({ checknum: event.target.value })}/>
 						</Col>
 					</Form.Group>
 					<Form.Group as={Row} controlId="transsource">
@@ -157,14 +157,14 @@ class EditTransaction extends LedgerComponent {
 						<Col sm={2} />
 						<Form.Label column sm={1}>Comment</Form.Label>
 						<Col sm={5}>
-							<Form.Control type="text" onChange={(event) => this.mergeState({ comment: event.target.value })}/>
+							<Form.Control type="text" value={this.state.comment} onChange={(event) => this.mergeState({ comment: event.target.value })}/>
 						</Col>
 					</Form.Group>
 					<Form.Group as={Row} controlId="amount">
 						<Col sm={2} />
 						<Form.Label column sm={1}>Amount</Form.Label>
 						<Col sm={2}>
-							<Form.Control type="text" onChange={(event) => this.mergeState({ amount: event.target.value })}/>
+							<Form.Control type="text" value={this.state.amount} onChange={(event) => this.mergeState({ amount: event.target.value })}/>
 						</Col>
 					</Form.Group>
 					<Form.Group as={Row} controlId="status">

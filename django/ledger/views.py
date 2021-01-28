@@ -196,7 +196,7 @@ def django_updatetransaction(request):
 			transaction.transdest = Entity.objects.filter(id=data['transdest'])[0]
 			transaction.comments = data['comment']
 			transaction.amount = data['amount']
-			status = TransactionType.objects.filter(id=data['status'])[0]
+			transaction.status = data['status']
 			transaction.save()
 			success = True
 			message = 'Transaction updated successfully'
