@@ -341,7 +341,7 @@ def save_transaction_pairs(transactionPairs, settings):
 			# if there is a bank transaction
 			if transPair.bankTrans is not None:
 				# use bank transaction as new local transaction
-				transPair.localTrans = transPair.bankTranks
+				transPair.localTrans = transPair.bankTrans
 				# indicate update transaction
 				saveLocalTrans = True
 		# if we need to update the transaction
@@ -350,8 +350,16 @@ def save_transaction_pairs(transactionPairs, settings):
 			if transPair.localTrans.transsource != settings.unknownAccount and transPair.localTrans.transdest != settings.unknownAccount:
 				# mark transaction as reconciled
 				transPair.localTrans.status = settings.transactionTypeReconciled.id
-			# update the transaction
-			transPair.localTrans.save()
+			# save the transaction
+			save_transaction_unique_datetime(transPair.localTrans)
+
+def save_transaction_unique_datetime(transaction):
+	# while there exists a transaction with this datetime
+	while Ledger.objects.filter(transdate=transaction.transdate, user=transaction.user).count() > 0:
+		# add a second to the transaction's datetime
+		transaction.transdate += timedelta(seconds=1)
+	# transaction is unique, save it
+	transaction.save()
 
 def terminate_tags(xmlStr, tagName):
 	startTag = '<' + tagName + '>'

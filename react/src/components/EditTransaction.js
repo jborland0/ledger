@@ -19,7 +19,7 @@ class EditTransaction extends LedgerComponent {
 			transdest: '',
 			comment: '',
 			amount: '',
-			status: '',
+			status: 1,
 			entities: [],
 			types: []
 		}

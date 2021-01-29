@@ -186,22 +186,30 @@ def django_updatetransaction(request):
 	message = 'An unknown error occurred'
 	if request.user.is_authenticated:
 		data = json.loads(request.body)
-		# load the transaction that we are updating
-		transactions = Ledger.objects.filter(id=data['id'])
-		if len(transactions) == 1:
-			transaction = transactions[0]
-			transaction.checknum = data['checknum']
+		transaction = None
+		# if the transaction is new
+		if (data['id'] == 'new'):
+			# create new transaction
+			transaction = Ledger(user=request.user)
+		else:
+			# load the transaction that we are updating
+			transactions = Ledger.objects.filter(id=data['id'])
+			if len(transactions) == 1:
+				transaction = transactions[0]
+			else:
+				message = 'Expected 1 transaction but found ' + str(len(transactions))
+		# if a transaction was found/created
+		if transaction is not None:
+			transaction.checknum = data['checknum'] if len(str(data['checknum'])) > 0 else None
 			transaction.transdate = timezone.make_aware(datetime.strptime(data['transdate'].replace('Z', 'UTC'), '%Y-%m-%dT%H:%M:%S.%f%Z'), pytz.UTC)
 			transaction.transsource = Entity.objects.filter(id=data['transsource'])[0]
 			transaction.transdest = Entity.objects.filter(id=data['transdest'])[0]
 			transaction.comments = data['comment']
 			transaction.amount = data['amount']
 			transaction.status = data['status']
-			transaction.save()
+			ledger.save_transaction_unique_datetime(transaction)
 			success = True
 			message = 'Transaction updated successfully'
-		else:
-			message = 'Expected 1 transaction but found ' + str(len(transactions))
 	else:
 		message = 'Not authenticated'
 	return JsonResponse({ 'success' : success, 'message': message })
