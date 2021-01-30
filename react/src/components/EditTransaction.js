@@ -59,12 +59,33 @@ class EditTransaction extends LedgerComponent {
 					transsource: transaction.transsource_id,
 					transdest: transaction.transdest_id,
 					comment: transaction.comments,
-					amount: transaction.amount,
+					amount: self.formatCurrency(transaction.amount),
 					status: transaction.status
 				});
 			}).fail(function (jqXHR, textStatus, errorThrown) {
 				self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
 			});
+		}
+	}
+	
+	formatCurrency(pennies) {
+		var fltPennies = parseFloat(pennies);
+		if (isNaN(fltPennies)) {
+			// not a number, return as is
+			return pennies;
+		} else {
+			var dollars = fltPennies/100.0;
+			return dollars.toLocaleString('en-US', { currency: 'USD', minimumFractionDigits: 2 });
+		}
+	}
+
+	parseCurrency(dollars) {
+		var fltDollars = parseFloat(dollars);
+		if (isNaN(fltDollars)) {
+			// not a number, return as is
+			return dollars;
+		} else {
+			return Math.round(fltDollars * 100.0);
 		}
 	}
 	
@@ -80,7 +101,7 @@ class EditTransaction extends LedgerComponent {
 			transsource: this.state.transsource,
 			transdest: this.state.transdest,
 			comment: this.state.comment,
-			amount: this.state.amount,
+			amount: this.parseCurrency(this.state.amount),
 			status: this.state.status
 		};
 		
