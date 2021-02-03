@@ -354,10 +354,12 @@ def save_transaction_pairs(transactionPairs, settings):
 			save_transaction_unique_datetime(transPair.localTrans)
 
 def save_transaction_unique_datetime(transaction):
-	# while there exists a transaction with this datetime
-	while Ledger.objects.filter(transdate=transaction.transdate, user=transaction.user).count() > 0:
-		# add a second to the transaction's datetime
-		transaction.transdate += timedelta(seconds=1)
+	# if this transaction isn't in the database already
+	if transaction.id is None:
+		# while there exists a transaction with this datetime
+		while Ledger.objects.filter(transdate=transaction.transdate, user=transaction.user).count() > 0:
+			# add a second to the transaction's datetime
+			transaction.transdate += timedelta(seconds=1)
 	# transaction is unique, save it
 	transaction.save()
 
