@@ -4,6 +4,7 @@ from . import views
 
 urlpatterns = [
     path('', views.index, name='index'),
+	path('django_deletetransaction/', views.django_deletetransaction, name='django_deletetransaction'),
     path('django_entities/', views.django_entities, name='django_entities'),
     path('django_gettransaction/', views.django_gettransaction, name='django_gettransaction'),
     path('django_getuser/', views.django_getuser, name='django_getuser'),

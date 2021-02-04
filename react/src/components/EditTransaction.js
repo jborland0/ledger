@@ -68,6 +68,30 @@ class EditTransaction extends LedgerComponent {
 		}
 	}
 	
+	confirmDelete() {
+		var self = this;
+		
+		this.showOKCancel('Confirm Delete', 'Are you sure you want to delete this transaction?',
+			(okButtonPressed) => { 
+				if (okButtonPressed) {
+					$.ajax({
+						type: 'post',
+						url: self.getConfig().baseURL + 'django_deletetransaction/',
+						data: JSON.stringify({ transId: self.props.match.params.transactionId })
+					}).done(function (data) {
+						if (data.success) {
+							self.props.history.push(self.getParentMatchPath() + '/transactions');
+						} else {
+							self.showAlert('Transaction Delete Error', data.message);
+						}
+					}).fail(function (jqXHR, textStatus, errorThrown) {
+						self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
+					});					
+				}
+			}
+		);
+	}
+	
 	formatCurrency(pennies) {
 		var fltPennies = parseFloat(pennies);
 		if (isNaN(fltPennies)) {
@@ -203,8 +227,13 @@ class EditTransaction extends LedgerComponent {
 					</Form.Group>
 					<Row>
 						<Col sm={{offset: 2, span: 8}} md={{offset: 3, span: 6}} lg={{offset: 4, span: 4}}>
-							<Button variant="primary" type="submit" className="float-right">
+							<Button variant="primary" className="float-right"
+								onClick={() => this.props.history.push(this.getParentMatchPath() + '/transactions')}>
 								Cancel
+							</Button>
+							<Button variant="primary" className="float-right" style={{ marginRight: '10px'}}
+								onClick={() => this.confirmDelete()}>
+								Delete
 							</Button>
 							<Button variant="primary" type="submit" className="float-right" style={{ marginRight: '10px'}}>
 								Save

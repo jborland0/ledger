@@ -20,7 +20,23 @@ from datetime import datetime
 
 def index(request):
 	return render(request, 'ledger/index.html')
-	
+
+def django_deletetransaction(request):
+	success = False
+	message = 'An unknown error occurred'
+	if request.user.is_authenticated:
+		data = json.loads(request.body)
+		transactions = Ledger.objects.filter(id=data['transId'])
+		if len(transactions) == 1:
+			transactions[0].delete()
+			success = True
+			message = 'Transaction deleted successfully'
+		else:
+			message = 'Expected 1 transaction but found ' + str(len(transactions))
+	else:
+		message = 'Not authenticated'
+	return JsonResponse({ 'success' : success, 'message': message })
+
 def django_entities(request):
 	entities = []
 	if request.user.is_authenticated:

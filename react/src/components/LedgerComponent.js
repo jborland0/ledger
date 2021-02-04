@@ -78,29 +78,9 @@ class LedgerComponent extends React.Component {
 		this.props.parent.showAlert(title, content, callback);
 	}
 	
-	/*
-	axios error object looks like this:
-	{
-		"message":"Network Error",
-		"name":"Error",
-		"stack":"Error: Network Error bla bla bla",
-		"config":{
-			"url":"http://localhost:8000/ledger/login",
-			"method":"post",
-			"data":"{\"username\":\"jborland\",\"password\":\"******\"}",
-			"headers":{
-				"Accept":"application/json, text/plain, *//*",
-				"Content-Type":"application/json;charset=utf-8"
-			},
-			"transformRequest":[null],
-			"transformResponse":[null],
-			"timeout":0,
-			"xsrfCookieName":"XSRF-TOKEN",
-			"xsrfHeaderName":"X-XSRF-TOKEN",
-			"maxContentLength":-1
-		}
-	}	
-	*/
+	showOKCancel(title, content, callback) {
+		this.props.parent.showOKCancel(title, content, callback);
+	}
 }
 
 export default LedgerComponent;

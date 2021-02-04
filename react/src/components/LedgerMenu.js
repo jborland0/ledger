@@ -21,6 +21,7 @@ class LedgerMenu extends LedgerComponent {
 			alert: {
 				title: '',
 				content: '',
+				canCancel: false,
 				callback: null,
 				show: false
 			},
@@ -87,25 +88,47 @@ class LedgerMenu extends LedgerComponent {
 			alert: {
 				title: title,
 				content: content,
+				canCancel: false,
 				callback: callback,
 				show: true
 			}
 		});
 	}
+	
+	showOKCancel(title, content, callback) {
+		this.mergeState({
+			alert: {
+				title: title,
+				content: content,
+				canCancel: true,
+				callback: callback,
+				show: true
+			}
+		});
+	}		
 
-	onAlertClose() {
+	onAlertClose(okButtonPressed) {
+		// save local values so we can reset state
 		var callback = this.state.alert.callback;
+		var canCancel = this.state.alert.canCancel;
 		
 		this.mergeState({
 			alert: {
-				title: "",
-				content: "",
+				title: '',
+				content: '',
+				canCancel: false,
 				callback: null,
 				show: false
 			}
+		}, () => {
+			if (callback) {
+				if (canCancel) {
+					callback(okButtonPressed);
+				} else {
+					callback();
+				}
+			}			
 		});
-		
-		if (callback) callback();
 	}
 	
 	renderAccountLinks() {
@@ -118,6 +141,12 @@ class LedgerMenu extends LedgerComponent {
 			return(<>
 				<Nav.Link href='#' onSelect={() => this.logOut()}>Log Out</Nav.Link>
 			</>);			
+		}
+	}
+	
+	renderCancelButton() {
+		if (this.state.alert.canCancel) {
+			return (<Button variant="primary" onClick={() => this.onAlertClose(false)}>Cancel</Button>);
 		}
 	}
  
@@ -145,7 +174,7 @@ class LedgerMenu extends LedgerComponent {
 					<Route exact path={this.props.match.path + '/login'} render={props => <Login parent={this} {...props} />} />
 					<Route exact path={this.props.match.path + '/register'} render={props => <Register parent={this} {...props} />} />
 				</Switch>
-				<Modal show={this.state.alert.show} onHide={() => this.onAlertClose()}>
+				<Modal show={this.state.alert.show} onHide={() => this.onAlertClose(false)}>
 					<Modal.Header closeButton>
 						<Modal.Title>{this.state.alert.title}</Modal.Title>
 					</Modal.Header>
@@ -155,7 +184,8 @@ class LedgerMenu extends LedgerComponent {
 					</Modal.Body>
 
 					<Modal.Footer>
-						<Button variant="primary" onClick={() => this.onAlertClose()}>OK</Button>
+						<Button variant="primary" onClick={() => this.onAlertClose(true)}>OK</Button>
+						{this.renderCancelButton()}
 					</Modal.Footer>
 				</Modal>
 			</>
