@@ -45,16 +45,26 @@ def django_entities(request):
 	return HttpResponse(entities_list, content_type='application/json')
 
 def django_gettransaction(request):
-	transId = int(request.GET.get('transId'))
+	transId = request.GET.get('transId')
 	transactions = []
 	if request.user.is_authenticated:
-		with connection.cursor() as cursor:
-			cursor.execute("SELECT * FROM ledger_ledgerdisplay WHERE id = %s AND user_id = %s ORDER BY transdate", [transId, request.user.id])
-			rows = cursor.fetchall()
-			keys = ('id','checknum','comments','amount','status','transdate','fitid','transdest_id','transsource_id','user_id','sourcename','destname')
-			for row in rows:
-				transactions.append(dict(zip(keys,row)))
-	return HttpResponse(json.dumps(transactions,cls=DjangoJSONEncoder), content_type='application/json')
+		# if we are requesting a new transaction
+		if transId == 'new':
+			# get user settings for home account, unknown account
+			settings = ledger.get_user_settings(request.user)
+			return JsonResponse({ 'id': transId, 'checknum': '', 'comments': '', 'amount': 0, 'status': settings.transactionTypeNone.id, 
+				'transdate': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S'), 'fitid': None, 'transdest_id': settings.unknownAccount.id,
+				'transsource_id': settings.homeAccount.id, 'user_id': request.user.id, 'sourcename': settings.homeAccount.name,
+				'destname': settings.unknownAccount.name })
+		else:
+			# look up the existing transaction
+			with connection.cursor() as cursor:
+				cursor.execute("SELECT * FROM ledger_ledgerdisplay WHERE id = %s AND user_id = %s ORDER BY transdate", [int(transId), request.user.id])
+				rows = cursor.fetchall()
+				keys = ('id','checknum','comments','amount','status','transdate','fitid','transdest_id','transsource_id','user_id','sourcename','destname')
+				for row in rows:
+					transactions.append(dict(zip(keys,row)))
+		return HttpResponse(json.dumps(transactions[0],cls=DjangoJSONEncoder), content_type='application/json')
 
 @ensure_csrf_cookie
 def django_getuser(request):

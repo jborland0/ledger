@@ -46,26 +46,23 @@ class EditTransaction extends LedgerComponent {
 			self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
 		});
 
-		if (this.props.match.params.transactionId !== 'new') {
-			$.ajax({
-				type: 'get',
-				url: this.getConfig().baseURL + 'django_gettransaction/',
-				data: 'transId=' + this.props.match.params.transactionId
-			}).done(function (data) {
-				var transaction = data[0];
-				self.mergeState({
-					date: new Date(transaction.transdate + 'Z'),
-					checknum: transaction.checknum,
-					transsource: transaction.transsource_id,
-					transdest: transaction.transdest_id,
-					comment: transaction.comments,
-					amount: self.formatCurrency(transaction.amount),
-					status: transaction.status
-				});
-			}).fail(function (jqXHR, textStatus, errorThrown) {
-				self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
+		$.ajax({
+			type: 'get',
+			url: this.getConfig().baseURL + 'django_gettransaction/',
+			data: 'transId=' + this.props.match.params.transactionId
+		}).done(function (transaction) {
+			self.mergeState({
+				date: new Date(transaction.transdate + 'Z'),
+				checknum: transaction.checknum,
+				transsource: transaction.transsource_id,
+				transdest: transaction.transdest_id,
+				comment: transaction.comments,
+				amount: self.formatCurrency(transaction.amount),
+				status: transaction.status
 			});
-		}
+		}).fail(function (jqXHR, textStatus, errorThrown) {
+			self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
+		});
 	}
 	
 	confirmDelete() {

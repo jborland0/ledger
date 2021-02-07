@@ -335,6 +335,8 @@ def save_transaction_pairs(transactionPairs, settings):
 			if transPair.bankTrans is not None:				
 				# copy bank fitid
 				transPair.localTrans.fitid = transPair.bankTrans.fitid
+				# copy transaction date
+				transPair.localTrans.transdate = transpair.bankTrans.transdate
 				# indicate update
 				saveLocalTrans = True
 		else:
