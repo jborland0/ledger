@@ -6,6 +6,7 @@ import Nav from 'react-bootstrap/Nav';
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
 import { Col, Container, Row } from 'react-bootstrap';
+import Entities from './Entities';
 import LedgerComponent from './LedgerComponent';
 import Ledger from './Ledger';
 import Login from './Login';
@@ -131,6 +132,16 @@ class LedgerMenu extends LedgerComponent {
 		});
 	}
 	
+	renderLedgerLinks() {
+		if (this.state.user.id != -1) {
+			return(<>
+				<Nav.Link href='#' onSelect={(eventKey, event) => this.props.history.push(this.props.match.path + '/transactions')}>Transactions</Nav.Link>
+				<Nav.Link href='#' onSelect={(eventKey, event) => this.props.history.push(this.props.match.path + '/entities')}>Entities</Nav.Link>
+				<Nav.Link href='#' onSelect={(eventKey, event) => this.props.history.push(this.props.match.path + '/categories')}>Categories</Nav.Link>
+			</>);
+		}
+	}
+	
 	renderAccountLinks() {
 		if (this.state.user.id == -1) {
 			return(<>
@@ -163,7 +174,10 @@ class LedgerMenu extends LedgerComponent {
 						/>{' '}
 						Ledger
 					</Navbar.Brand>
-					<Nav className="justify-content-end" style={{ width: "100%" }}>
+					<Nav style={{ width: "50%" }}>
+						{this.renderLedgerLinks()}
+					</Nav>
+					<Nav className="justify-content-end" style={{ width: "50%" }}>
 						{this.renderAccountLinks()}
 					</Nav>
 				</Navbar>
@@ -171,6 +185,7 @@ class LedgerMenu extends LedgerComponent {
 				<Switch>
 					<Route path={this.props.match.path + '/transactions/:transactionId'} render={props => <EditTransaction parent={this} {...props} />} />
 					<Route exact path={this.props.match.path + '/transactions'} render={props => <Ledger parent={this} {...props} />} />
+					<Route exact path={this.props.match.path + '/entities'} render={props => <Entities parent={this} {...props} />} />
 					<Route exact path={this.props.match.path + '/login'} render={props => <Login parent={this} {...props} />} />
 					<Route exact path={this.props.match.path + '/register'} render={props => <Register parent={this} {...props} />} />
 				</Switch>

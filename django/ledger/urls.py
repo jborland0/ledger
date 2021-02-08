@@ -4,8 +4,10 @@ from . import views
 
 urlpatterns = [
     path('', views.index, name='index'),
+	path('django_categories/', views.django_categories, name='django_categories'),
 	path('django_deletetransaction/', views.django_deletetransaction, name='django_deletetransaction'),
     path('django_entities/', views.django_entities, name='django_entities'),
+    path('django_entities_page/', views.django_entities_page, name='django_entities_page'),
     path('django_gettransaction/', views.django_gettransaction, name='django_gettransaction'),
     path('django_getuser/', views.django_getuser, name='django_getuser'),
     path('django_ledger/', views.django_ledger, name='django_ledger'),

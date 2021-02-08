@@ -13,13 +13,20 @@ from django.core import serializers
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import connection
 import json
-from ledger.models import Entity, Ledger, TransactionType
+from ledger.models import Category, Entity, Ledger, TransactionType
 import math
 from . import ledger
 from datetime import datetime
 
 def index(request):
 	return render(request, 'ledger/index.html')
+
+def django_categories(request):
+	categories = []
+	if request.user.is_authenticated:
+		categories = Category.objects.filter(user__id=request.user.id).order_by('name')
+	categories_list = serializers.serialize('json', categories)
+	return HttpResponse(categories_list, content_type='application/json')
 
 def django_deletetransaction(request):
 	success = False
@@ -41,8 +48,46 @@ def django_entities(request):
 	entities = []
 	if request.user.is_authenticated:
 		entities = Entity.objects.filter(user__id=request.user.id).order_by('name')
-		entities_list = serializers.serialize('json', entities)
+	entities_list = serializers.serialize('json', entities)
 	return HttpResponse(entities_list, content_type='application/json')
+
+def django_entities_page(request):
+	pageNumber = int(request.GET.get('pageNumber', '1'))
+	pageSize = int(request.GET.get('pageSize', '10'))
+	category = int(request.GET.get('category', '0'))
+	entities = []
+	if request.user.is_authenticated:
+		# if 'all' was specified for category
+		with connection.cursor() as cursor:
+			if category == 0:
+				# load all entities
+				cursor.execute("SELECT * FROM ledger_entitydisplay WHERE user_id = %s ORDER BY name", [request.user.id])
+			else:
+				# load all entities for this category
+				cursor.execute("SELECT * FROM ledger_entitydisplay WHERE category_id = %s and user_id = %s ORDER BY name", [category, request.user.id])
+			rows = cursor.fetchall()
+			keys = ('id','name','category_id','user_id','category_name')
+			for row in rows:
+				entities.append(dict(zip(keys,row)))
+		# calculate total number of pages
+		rowCount = len(entities)
+		pageCount = math.ceil(rowCount/pageSize)
+		# make sure requested page is in range
+		# special case -1 indicates last page
+		if pageNumber == -1 or pageNumber > pageCount:				
+			pageNumber = pageCount
+		elif pageNumber < 1:
+			pageNumber = 1
+		# calculate start and end indices
+		startIndex = (pageNumber - 1) * pageSize
+		endIndex = startIndex + pageSize
+		if endIndex > rowCount:
+			endIndex = rowCount
+		# reduce entities to page we want
+		entities = entities[startIndex:endIndex]
+	# create dictionary for response
+	responseData = { 'pageNumber': pageNumber, 'pageSize': pageSize, 'pageCount': pageCount, 'entities': entities }
+	return HttpResponse(json.dumps(responseData,cls=DjangoJSONEncoder), content_type='application/json')
 
 def django_gettransaction(request):
 	transId = request.GET.get('transId')
@@ -111,7 +156,7 @@ def django_ledger(request):
 			endIndex = rowCount
 		# reduce transactions to page we want
 		transactions = transactions[startIndex:endIndex]
-		# create dictionary for response
+	# create dictionary for response
 	responseData = { 'pageNumber': pageNumber, 'pageSize': pageSize, 'pageCount': pageCount, 'transactions': transactions }
 	return HttpResponse(json.dumps(responseData,cls=DjangoJSONEncoder), content_type='application/json')
 
