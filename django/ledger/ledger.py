@@ -84,9 +84,8 @@ def generate_transaction_list(user, entity, transaction, estimatesFrom, estimate
 		while transactions.compare_date_only(budgetStop, estimatesTo) <= 0:
 			# change of plans - don't just add up this destination, 
 			# add up all destinations with the same category as this one.
-			categoryId = Entity.objects.filter(id=transaction['transdest_id'])[0].category.id
-			# rsCategory = stmt.executeQuery("SELECT id FROM ledger_entity WHERE category = " + categoryId);
-			entities = Entity.objects.filter(category__id=categoryId)
+			category = Entity.objects.filter(id=transaction['transdest_id'],user=user)[0].category
+			entities = Entity.objects.filter(category=category,user=user)
 			entityList = ''
 			for entity in entities:
 				if len(entityList) > 0:
@@ -128,8 +127,8 @@ def get_user_settings(user):
 		rows = cursor.fetchall()
 		if len(rows) == 0:
 			raise Exception('Could not determine home and unknown accounts')
-		settings.homeAccount = Entity.objects.filter(id=rows[0][0])[0]
-		settings.unknownAccount = Entity.objects.filter(id=rows[0][1])[0]
+		settings.homeAccount = Entity.objects.filter(id=rows[0][0],user=user)[0]
+		settings.unknownAccount = Entity.objects.filter(id=rows[0][1],user=user)[0]
 	settings.transactionTypeNone = TransactionType.objects.filter(id=1)[0]
 	settings.transactionTypeReconciled = TransactionType.objects.filter(id=2)[0]
 	return settings
@@ -138,10 +137,10 @@ def import_transactions(qfx, user):
 	settings = get_user_settings(user)
 	# create list of qfx transactions that haven't been imported yet
 	qfxTransactions = qfx_to_transactions(qfx, user, settings)
-	newTransactions = prune_imported_transactions(qfxTransactions)
+	newTransactions = prune_imported_transactions(qfxTransactions, user)
 	# get list of unreconciled transactions
 	unreconciledTransactions = list(Ledger.objects.filter((Q(transdest=settings.homeAccount) | Q(transsource=settings.homeAccount)) & 
-		Q(status=settings.transactionTypeNone.id)).order_by('-transdate'))
+		Q(status=settings.transactionTypeNone.id) & Q(user=user)).order_by('-transdate'))
 	# create pairs of matching transactions
 	transactionPairs = pair_transactions(newTransactions, unreconciledTransactions)
 	# TODO perhaps display pairs to user, allow editing, etc
@@ -198,11 +197,11 @@ def load_for_entity(user, entity, transactionTypes, estimatesFrom, estimatesTo):
 			trans['reconciled'] = reconciledBalance
 	return transList
 
-def move_transaction_back(transId):
+def move_transaction_back(transId, user):
 	# get the transaction we are moving
 	transaction = Ledger.objects.get(id=transId)
 	# get the previous transaction by trans date
-	prev_trans = Ledger.objects.filter(transdate__lt=transaction.transdate).order_by('-transdate').first()
+	prev_trans = Ledger.objects.filter(transdate__lt=transaction.transdate,user=user).order_by('-transdate').first()
 	# swap the dates
 	temp_date = transaction.transdate
 	transaction.transdate = prev_trans.transdate
@@ -211,11 +210,11 @@ def move_transaction_back(transId):
 	transaction.save()
 	prev_trans.save()
 
-def move_transaction_forward(transId):
+def move_transaction_forward(transId, user):
 	# get the transaction we are moving
 	transaction = Ledger.objects.get(id=transId)
 	# get the next transaction by trans date
-	next_trans = Ledger.objects.filter(transdate__gt=transaction.transdate).order_by('transdate').first()
+	next_trans = Ledger.objects.filter(transdate__gt=transaction.transdate,user=user).order_by('transdate').first()
 	# swap the dates
 	temp_date = transaction.transdate
 	transaction.transdate = next_trans.transdate
@@ -268,13 +267,13 @@ def pair_transactions(newTransactions, unreconciledTransactions):
 			transactionPairs.insert(unmatchedPairIdx, unmatchedPair)
 	return transactionPairs
 
-def prune_imported_transactions(transactions):
+def prune_imported_transactions(transactions, user):
 	# create a list of fitids
 	fitids = []
 	for transaction in transactions:
 		fitids.append(transaction.fitid)
 	# select reconciled fitids from database
-	reconciledTransactions = Ledger.objects.filter(fitid__in=fitids)
+	reconciledTransactions = Ledger.objects.filter(fitid__in=fitids,user=user)
 	reconciledFitids = []
 	for reconciledTransaction in reconciledTransactions:
 		reconciledFitids.append(reconciledTransaction.fitid)
@@ -302,7 +301,7 @@ def qfx_to_transactions(qfx, user, settings):
 		comments = bankname_to_regex(transNode.findall('./NAME')[0].text.strip())
 		amount = int(Decimal(transNode.findall('./TRNAMT')[0].text) * 100)
 		# try looking up entity by bankname
-		banknameLookup = BanknameLookup.objects.filter(bankname=comments).first()
+		banknameLookup = BanknameLookup.objects.filter(bankname=comments,user=user).first()
 		banknameEntity = settings.unknownAccount if banknameLookup is None else banknameLookup.entity
 		# assign accounts depending on whether money is going in or out
 		if amount < 0:
@@ -336,7 +335,7 @@ def save_transaction_pairs(transactionPairs, settings):
 				# copy bank fitid
 				transPair.localTrans.fitid = transPair.bankTrans.fitid
 				# copy transaction date
-				transPair.localTrans.transdate = transpair.bankTrans.transdate
+				transPair.localTrans.transdate = transPair.bankTrans.transdate
 				# indicate update
 				saveLocalTrans = True
 		else:
@@ -359,9 +358,15 @@ def save_transaction_unique_datetime(transaction):
 	# if this transaction isn't in the database already
 	if transaction.id is None:
 		# while there exists a transaction with this datetime
-		while Ledger.objects.filter(transdate=transaction.transdate, user=transaction.user).count() > 0:
+		while Ledger.objects.filter(transdate=transaction.transdate,user=transaction.user).count() > 0:
 			# add a second to the transaction's datetime
 			transaction.transdate += timedelta(seconds=1)
+	else:
+		# while there exists a transaction with this datetime, and it isn't this one
+		while Ledger.objects.filter(~Q(id=transaction.id) & Q(transdate=transaction.transdate) & Q(user=transaction.user)).count() > 0:
+			# add a second to the transaction's datetime
+			transaction.transdate += timedelta(seconds=1)
+		
 	# transaction is unique, save it
 	transaction.save()
 

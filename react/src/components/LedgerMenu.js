@@ -7,6 +7,7 @@ import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
 import { Col, Container, Row } from 'react-bootstrap';
 import Entities from './Entities';
+import EditEntity from './EditEntity';
 import LedgerComponent from './LedgerComponent';
 import Ledger from './Ledger';
 import Login from './Login';
@@ -184,6 +185,7 @@ class LedgerMenu extends LedgerComponent {
 				<div style={{height: '10px', width: '100%'}}></div>
 				<Switch>
 					<Route path={this.props.match.path + '/transactions/:transactionId'} render={props => <EditTransaction parent={this} {...props} />} />
+					<Route path={this.props.match.path + '/entities/:entityId'} render={props => <EditEntity parent={this} {...props} />} />
 					<Route exact path={this.props.match.path + '/transactions'} render={props => <Ledger parent={this} {...props} />} />
 					<Route exact path={this.props.match.path + '/entities'} render={props => <Entities parent={this} {...props} />} />
 					<Route exact path={this.props.match.path + '/login'} render={props => <Login parent={this} {...props} />} />

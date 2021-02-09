@@ -24,16 +24,32 @@ def index(request):
 def django_categories(request):
 	categories = []
 	if request.user.is_authenticated:
-		categories = Category.objects.filter(user__id=request.user.id).order_by('name')
+		categories = Category.objects.filter(user=request.user).order_by('name')
 	categories_list = serializers.serialize('json', categories)
 	return HttpResponse(categories_list, content_type='application/json')
+
+def django_deleteentity(request):
+	success = False
+	message = 'An unknown error occurred'
+	if request.user.is_authenticated:
+		data = json.loads(request.body)
+		entities = Entity.objects.filter(id=data['entityId'],user=request.user)
+		if len(entities) == 1:
+			entities[0].delete()
+			success = True
+			message = 'Entity deleted successfully'
+		else:
+			message = 'Expected 1 entity but found ' + str(len(entities))
+	else:
+		message = 'Not authenticated'
+	return JsonResponse({ 'success' : success, 'message': message })
 
 def django_deletetransaction(request):
 	success = False
 	message = 'An unknown error occurred'
 	if request.user.is_authenticated:
 		data = json.loads(request.body)
-		transactions = Ledger.objects.filter(id=data['transId'])
+		transactions = Ledger.objects.filter(id=data['transId'],user=request.user)
 		if len(transactions) == 1:
 			transactions[0].delete()
 			success = True
@@ -47,7 +63,7 @@ def django_deletetransaction(request):
 def django_entities(request):
 	entities = []
 	if request.user.is_authenticated:
-		entities = Entity.objects.filter(user__id=request.user.id).order_by('name')
+		entities = Entity.objects.filter(user=request.user).order_by('name')
 	entities_list = serializers.serialize('json', entities)
 	return HttpResponse(entities_list, content_type='application/json')
 
@@ -88,6 +104,19 @@ def django_entities_page(request):
 	# create dictionary for response
 	responseData = { 'pageNumber': pageNumber, 'pageSize': pageSize, 'pageCount': pageCount, 'entities': entities }
 	return HttpResponse(json.dumps(responseData,cls=DjangoJSONEncoder), content_type='application/json')
+
+def django_getentity(request):
+	entityId = request.GET.get('entityId')
+	entities = []
+	if request.user.is_authenticated:
+		# look up the existing entity
+		with connection.cursor() as cursor:
+			cursor.execute("SELECT * FROM ledger_entitydisplay WHERE id = %s and user_id = %s", [int(entityId), request.user.id])
+			rows = cursor.fetchall()
+			keys = ('id','name','category_id','user_id','category_name')
+			for row in rows:
+				entities.append(dict(zip(keys,row)))
+	return HttpResponse(json.dumps(entities[0],cls=DjangoJSONEncoder), content_type='application/json')
 
 def django_gettransaction(request):
 	transId = request.GET.get('transId')
@@ -193,12 +222,12 @@ def django_movetransaction(request):
 			# for each step
 			for i in range (0, nSteps):
 				# move transaction forward
-				ledger.move_transaction_forward(transId)
+				ledger.move_transaction_forward(transId,request.user)
 		else:
 			# for each step
 			for i in range(0, -nSteps):
 				# move transaction back
-				ledger.move_transaction_back(transId)
+				ledger.move_transaction_back(transId,request.user)
 		success = True
 		message = 'Transaction was moved successfully'
 	else:
@@ -252,6 +281,34 @@ def django_transactiontypes(request):
 	types_list = serializers.serialize('json', types)
 	return HttpResponse(types_list, content_type='application/json')
 
+def django_updateentity(request):
+	success = False
+	message = 'An unknown error occurred'
+	if request.user.is_authenticated:
+		data = json.loads(request.body)
+		entity = None
+		# if the transaction is new
+		if (data['id'] == 'new'):
+			# create new entity
+			entity = Entity(user=request.user)
+		else:
+			# load the entity that we are updating
+			entities = Entity.objects.filter(id=data['id'],user=request.user)
+			if len(entities) == 1:
+				entity = entities[0]
+			else:
+				message = 'Expected 1 entity but found ' + str(len(entities))
+		# if an entity was found/created
+		if transaction is not None:
+			entity.name = data['name']
+			entity.category = Category.objects.filter(id=data['category_id'],user=request.user)[0]
+			entity.save()
+			success = True
+			message = 'Entity updated successfully'
+	else:
+		message = 'Not authenticated'
+	return JsonResponse({ 'success' : success, 'message': message })
+
 def django_updatetransaction(request):
 	success = False
 	message = 'An unknown error occurred'
@@ -264,7 +321,7 @@ def django_updatetransaction(request):
 			transaction = Ledger(user=request.user)
 		else:
 			# load the transaction that we are updating
-			transactions = Ledger.objects.filter(id=data['id'])
+			transactions = Ledger.objects.filter(id=data['id'],user=request.user)
 			if len(transactions) == 1:
 				transaction = transactions[0]
 			else:
@@ -273,8 +330,8 @@ def django_updatetransaction(request):
 		if transaction is not None:
 			transaction.checknum = data['checknum'] if len(str(data['checknum'])) > 0 else None
 			transaction.transdate = timezone.make_aware(datetime.strptime(data['transdate'].replace('Z', 'UTC'), '%Y-%m-%dT%H:%M:%S.%f%Z'), pytz.UTC)
-			transaction.transsource = Entity.objects.filter(id=data['transsource'])[0]
-			transaction.transdest = Entity.objects.filter(id=data['transdest'])[0]
+			transaction.transsource = Entity.objects.filter(id=data['transsource'],user=request.user)[0]
+			transaction.transdest = Entity.objects.filter(id=data['transdest'],user=request.user)[0]
 			transaction.comments = data['comment']
 			transaction.amount = data['amount']
 			transaction.status = data['status']

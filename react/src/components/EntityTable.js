@@ -43,7 +43,6 @@ const DndTable = ({ ledger, columns, data }) => {
         <thead>
           {headerGroups.map(headerGroup => (
             <tr {...headerGroup.getHeaderGroupProps()}>
-              <th></th>
               {headerGroup.headers.map(column => (
                 <th {...column.getHeaderProps()}>{column.render('Header')}</th>
               ))}
@@ -133,7 +132,6 @@ const DndRow = ({ ledger, row, index, moveRow }) => {
 
   return (
     <tr ref={dropRef} style={{ opacity }}>
-      <td ref={dragRef}><GripHorizontal style={{ cursor: 'pointer' }} /></td>
       {row.cells.map(cell => {
         return <td {...cell.getCellProps()}>{cell.render('Cell')}</td>
       })}
@@ -149,7 +147,8 @@ const EntityTable = ({ entitiesComponent, entities, propsPageNumber, propsPageSi
 	const columns = React.useMemo(() => [
 	    { Header: <PlusSquare style={{ cursor: 'pointer' }} onClick={() => entitiesComponent.addEntity()} />, accessor: 'id', 
 			Cell: props => <PencilSquare style={{ cursor: 'pointer' }} onClick={() => entitiesComponent.editEntity(props.value)} /> },
-		{ Header: 'Name', accessor: 'name' }
+		{ Header: 'Name', accessor: 'name' },
+		{ Header: 'Category', accessor: 'category_name' }
 	], []);	
 	
 	return (
