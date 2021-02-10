@@ -6,6 +6,8 @@ import Nav from 'react-bootstrap/Nav';
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
 import { Col, Container, Row } from 'react-bootstrap';
+import Categories from './Categories';
+import EditCategory from './EditCategory';
 import Entities from './Entities';
 import EditEntity from './EditEntity';
 import LedgerComponent from './LedgerComponent';
@@ -186,8 +188,10 @@ class LedgerMenu extends LedgerComponent {
 				<Switch>
 					<Route path={this.props.match.path + '/transactions/:transactionId'} render={props => <EditTransaction parent={this} {...props} />} />
 					<Route path={this.props.match.path + '/entities/:entityId'} render={props => <EditEntity parent={this} {...props} />} />
+					<Route path={this.props.match.path + '/categories/:categoryId'} render={props => <EditCategory parent={this} {...props} />} />
 					<Route exact path={this.props.match.path + '/transactions'} render={props => <Ledger parent={this} {...props} />} />
 					<Route exact path={this.props.match.path + '/entities'} render={props => <Entities parent={this} {...props} />} />
+					<Route exact path={this.props.match.path + '/categories'} render={props => <Categories parent={this} {...props} />} />
 					<Route exact path={this.props.match.path + '/login'} render={props => <Login parent={this} {...props} />} />
 					<Route exact path={this.props.match.path + '/register'} render={props => <Register parent={this} {...props} />} />
 				</Switch>

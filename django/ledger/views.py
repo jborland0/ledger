@@ -28,6 +28,54 @@ def django_categories(request):
 	categories_list = serializers.serialize('json', categories)
 	return HttpResponse(categories_list, content_type='application/json')
 
+def django_categories_page(request):
+	pageNumber = int(request.GET.get('pageNumber', '1'))
+	pageSize = int(request.GET.get('pageSize', '10'))
+	categories = []
+	if request.user.is_authenticated:
+		with connection.cursor() as cursor:
+			# load all entities
+			cursor.execute("SELECT * FROM ledger_category WHERE user_id = %s ORDER BY name", [request.user.id])
+			rows = cursor.fetchall()
+			keys = ('id','name','user_id')
+			for row in rows:
+				categories.append(dict(zip(keys,row)))
+		# calculate total number of pages
+		rowCount = len(categories)
+		pageCount = math.ceil(rowCount/pageSize)
+		# make sure requested page is in range
+		# special case -1 indicates last page
+		if pageNumber == -1 or pageNumber > pageCount:				
+			pageNumber = pageCount
+		elif pageNumber < 1:
+			pageNumber = 1
+		# calculate start and end indices
+		startIndex = (pageNumber - 1) * pageSize
+		endIndex = startIndex + pageSize
+		if endIndex > rowCount:
+			endIndex = rowCount
+		# reduce categories to page we want
+		categories = categories[startIndex:endIndex]
+	# create dictionary for response
+	responseData = { 'pageNumber': pageNumber, 'pageSize': pageSize, 'pageCount': pageCount, 'categories': categories }
+	return HttpResponse(json.dumps(responseData,cls=DjangoJSONEncoder), content_type='application/json')
+
+def django_deletecategory(request):
+	success = False
+	message = 'An unknown error occurred'
+	if request.user.is_authenticated:
+		data = json.loads(request.body)
+		categories = Category.objects.filter(id=data['categoryId'],user=request.user)
+		if len(categories) == 1:
+			categories[0].delete()
+			success = True
+			message = 'Category deleted successfully'
+		else:
+			message = 'Expected 1 category but found ' + str(len(entities))
+	else:
+		message = 'Not authenticated'
+	return JsonResponse({ 'success' : success, 'message': message })
+
 def django_deleteentity(request):
 	success = False
 	message = 'An unknown error occurred'
@@ -73,8 +121,8 @@ def django_entities_page(request):
 	category = int(request.GET.get('category', '0'))
 	entities = []
 	if request.user.is_authenticated:
-		# if 'all' was specified for category
 		with connection.cursor() as cursor:
+			# if 'all' was specified for category
 			if category == 0:
 				# load all entities
 				cursor.execute("SELECT * FROM ledger_entitydisplay WHERE user_id = %s ORDER BY name", [request.user.id])
@@ -104,6 +152,19 @@ def django_entities_page(request):
 	# create dictionary for response
 	responseData = { 'pageNumber': pageNumber, 'pageSize': pageSize, 'pageCount': pageCount, 'entities': entities }
 	return HttpResponse(json.dumps(responseData,cls=DjangoJSONEncoder), content_type='application/json')
+
+def django_getcategory(request):
+	categoryId = request.GET.get('categoryId')
+	categories = []
+	if request.user.is_authenticated:
+		# look up the existing category
+		with connection.cursor() as cursor:
+			cursor.execute("SELECT * FROM ledger_category WHERE id = %s and user_id = %s", [int(categoryId), request.user.id])
+			rows = cursor.fetchall()
+			keys = ('id','name','user_id')
+			for row in rows:
+				categories.append(dict(zip(keys,row)))
+	return HttpResponse(json.dumps(categories[0],cls=DjangoJSONEncoder), content_type='application/json')
 
 def django_getentity(request):
 	entityId = request.GET.get('entityId')
@@ -281,13 +342,40 @@ def django_transactiontypes(request):
 	types_list = serializers.serialize('json', types)
 	return HttpResponse(types_list, content_type='application/json')
 
+def django_updatecategory(request):
+	success = False
+	message = 'An unknown error occurred'
+	if request.user.is_authenticated:
+		data = json.loads(request.body)
+		category = None
+		# if the category is new
+		if (data['id'] == 'new'):
+			# create new category
+			category = Category(user=request.user)
+		else:
+			# load the category that we are updating
+			categories = Category.objects.filter(id=data['id'],user=request.user)
+			if len(categories) == 1:
+				category = categories[0]
+			else:
+				message = 'Expected 1 category but found ' + str(len(categories))
+		# if a category was found/created
+		if category is not None:
+			category.name = data['name']
+			category.save()
+			success = True
+			message = 'Category updated successfully'
+	else:
+		message = 'Not authenticated'
+	return JsonResponse({ 'success' : success, 'message': message })
+
 def django_updateentity(request):
 	success = False
 	message = 'An unknown error occurred'
 	if request.user.is_authenticated:
 		data = json.loads(request.body)
 		entity = None
-		# if the transaction is new
+		# if the entity is new
 		if (data['id'] == 'new'):
 			# create new entity
 			entity = Entity(user=request.user)
@@ -299,7 +387,7 @@ def django_updateentity(request):
 			else:
 				message = 'Expected 1 entity but found ' + str(len(entities))
 		# if an entity was found/created
-		if transaction is not None:
+		if entity is not None:
 			entity.name = data['name']
 			entity.category = Category.objects.filter(id=data['category_id'],user=request.user)[0]
 			entity.save()
