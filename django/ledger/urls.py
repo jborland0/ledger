@@ -25,6 +25,6 @@ urlpatterns = [
 	path('django_updatecategory/', views.django_updatecategory, name='django_updatecategory'),
 	path('django_updateentity/', views.django_updateentity, name='django_updateentity'),
 	path('django_updatetransaction/', views.django_updatetransaction, name='django_updatetransaction'),
-	path('django_uploadtransactions/', views.django_uploadtransactions, name='django_uploadtransactions'),
-    re_path(r'^(?:.*)/?$', views.index, name='index')
+	path('django_uploadtransactions/', views.django_uploadtransactions, name='django_uploadtransactions')
+    # re_path(r'^(?:.*)/?$', views.index, name='index')
 ]

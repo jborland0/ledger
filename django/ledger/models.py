@@ -10,13 +10,6 @@ class TransactionType(models.Model):
 	sel_fg_color = models.CharField(max_length=15)
 	sel_bg_color = models.CharField(max_length=15)
 
-class Settings(models.Model):
-	def __str__(self):
-		return self.user.username
-	home_account = models.CharField(max_length=255)
-	unknown_account = models.CharField(max_length=255)
-	user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete = models.CASCADE)
-
 class Category(models.Model):
 	def __str__(self):
 		return self.user.username + ': ' + self.name
@@ -29,6 +22,13 @@ class Entity(models.Model):
 	name = models.CharField(max_length=255)
 	category = models.ForeignKey(Category, on_delete=models.CASCADE)
 	user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+
+class Settings(models.Model):
+	def __str__(self):
+		return self.user.username
+	home_account = models.ForeignKey(Entity, on_delete=models.CASCADE, related_name='home_account')
+	unknown_account = models.ForeignKey(Entity, on_delete=models.CASCADE, related_name='unknown_account')
+	user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete = models.CASCADE)
 
 class BanknameLookup(models.Model):
 	def __str__(self):

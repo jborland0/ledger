@@ -15,7 +15,8 @@ class Register extends LedgerComponent {
 				username: '',
 				password: '',
 				passwordMatch: '',
-				email: ''
+				email: '',
+				homeAccount: ''
 			},
 			messages: {}
 		}
@@ -31,7 +32,7 @@ class Register extends LedgerComponent {
 			data: JSON.stringify(this.state.registration)
 		}).done(function (data) {
 			if (data.success) {
-				self.mergeState({ registration: { username: '', password: '', passwordMatch: '', email: '' }, messages: {}});
+				self.mergeState({ registration: { username: '', password: '', passwordMatch: '', email: '', homeAccount: '' }, messages: {}});
 				self.props.history.push(self.getParentMatchPath() + '/login');
 			} else {
 				self.mergeState({ messages: data.messages });
@@ -63,7 +64,11 @@ class Register extends LedgerComponent {
 							<Form.Group controlId="password">
 								<Form.Label>Password</Form.Label>
 								<Form.Control type="password" value={this.state.registration.password} 
-									onChange={(event) => this.mergeState({ registration: {password: event.target.value} })} />
+									onChange={(event) => this.mergeState({ registration: {password: event.target.value} })}
+									isInvalid={this.state.messages.password} />
+								<Form.Control.Feedback type="invalid">
+									{this.state.messages.password}
+								</Form.Control.Feedback>
 							</Form.Group>
 						</Col>
 					</Row>
@@ -72,7 +77,11 @@ class Register extends LedgerComponent {
 							<Form.Group controlId="passwordMatch">
 								<Form.Label>Retype Password</Form.Label>
 								<Form.Control type="password" value={this.state.registration.passwordMatch} 
-									onChange={(event) => this.mergeState({ registration: {passwordMatch: event.target.value} })} />
+									onChange={(event) => this.mergeState({ registration: {passwordMatch: event.target.value} })}
+									isInvalid={this.state.messages.passwordMatch} />
+								<Form.Control.Feedback type="invalid">
+									{this.state.messages.passwordMatch}
+								</Form.Control.Feedback>
 							</Form.Group>
 						</Col>
 					</Row>
@@ -81,7 +90,24 @@ class Register extends LedgerComponent {
 							<Form.Group controlId="email">
 								<Form.Label>Email</Form.Label>
 								<Form.Control type="text" value={this.state.registration.email} 
-									onChange={(event) => this.mergeState({ registration: { email: event.target.value} })} />
+									onChange={(event) => this.mergeState({ registration: { email: event.target.value} })}
+									isInvalid={this.state.messages.email} />
+								<Form.Control.Feedback type="invalid">
+									{this.state.messages.email}
+								</Form.Control.Feedback>
+							</Form.Group>
+						</Col>
+					</Row>
+					<Row>
+						<Col sm={{offset: 2, span: 8}} md={{offset: 3, span: 6}} lg={{offset: 4, span: 4}}>
+							<Form.Group controlId="homeAccount">
+								<Form.Label>Name of your primary bank account</Form.Label>
+								<Form.Control type="text" value={this.state.registration.homeAccount} 
+									onChange={(event) => this.mergeState({ registration: { homeAccount: event.target.value} })}
+									isInvalid={this.state.messages.homeAccount} />
+								<Form.Control.Feedback type="invalid">
+									{this.state.messages.homeAccount}
+								</Form.Control.Feedback>
 							</Form.Group>
 						</Col>
 					</Row>

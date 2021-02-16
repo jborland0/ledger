@@ -123,7 +123,7 @@ def get_user_settings(user):
 	settings = types.SimpleNamespace()
 	# find home and unknown accounts
 	with connection.cursor() as cursor:
-		cursor.execute("SELECT home_account, unknown_account FROM ledger_settings_id WHERE user_id = %s", [user.id])
+		cursor.execute("SELECT home_account_id, unknown_account_id FROM ledger_settings WHERE user_id = %s", [user.id])
 		rows = cursor.fetchall()
 		if len(rows) == 0:
 			raise Exception('Could not determine home and unknown accounts')

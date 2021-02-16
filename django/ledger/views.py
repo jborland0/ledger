@@ -13,7 +13,7 @@ from django.core import serializers
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import connection
 import json
-from ledger.models import Category, Entity, Ledger, TransactionType
+from ledger.models import Category, Entity, Ledger, Settings, TransactionType
 import math
 from . import ledger
 from datetime import datetime
@@ -312,6 +312,8 @@ def django_register(request):
 		messages['passwordMatch'] = 'Passwords must match'
 	if data['email'] == '':
 		messages['email'] = 'Email is required'
+	if data['homeAccount'] == '':
+		messages['homeAccount'] = 'Primary account name is required'
 	# if no errors yet
 	if len(messages) == 0:
 		# use db transaction so name/email won't get taken
@@ -321,7 +323,16 @@ def django_register(request):
 			if (existingUserCount > 0):
 				messages['username'] = 'Username is not available'
 			if len(messages) == 0:
+				# create user account
 				user = get_user_model().objects.create_user(data['username'], data['email'], data['password'])
+				# create categories for accounts & unknown
+				accountCategory = Category.objects.create(user=user, name='Accounts')
+				unknownCategory = Category.objects.create(user=user, name='Unknown')
+				# create home & unknown accounts
+				homeAccount = Entity.objects.create(user=user, name=data['homeAccount'], category=accountCategory)
+				unknownAccount = Entity.objects.create(user=user, name='Unknown', category=unknownCategory)
+				# create settings
+				settings = Settings.objects.create(user=user, home_account=homeAccount, unknown_account=unknownAccount)
 				return JsonResponse({ 'success': True, 'user' : { 'id': user.id, 'username': user.username } })
 	# create user failed, return error messages
 	return JsonResponse({ 'success': False, 'messages': messages })
@@ -331,7 +342,7 @@ def django_settings(request):
     responseData = { 'home_account': 0, 'unknown_account': 0 }
     if request.user.is_authenticated:
         with connection.cursor() as cursor:
-            cursor.execute("SELECT home_account, unknown_account FROM ledger_settings_id WHERE user_id = %s", [request.user.id])
+            cursor.execute("SELECT home_account_id, unknown_account_id FROM ledger_settings WHERE user_id = %s", [request.user.id])
             rows = cursor.fetchall()
             if len(rows) > 0:
                 responseData = { 'home_account': rows[0][0], 'unknown_account': rows[0][1] }
