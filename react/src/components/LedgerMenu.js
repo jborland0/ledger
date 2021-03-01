@@ -16,6 +16,7 @@ import Login from './Login';
 import Register from './Register';
 import EditTransaction from './EditTransaction';
 import $ from 'jquery';
+import LoadingOverlay from 'react-loading-overlay'
 
 class LedgerMenu extends LedgerComponent {
   	constructor(props) {
@@ -29,6 +30,7 @@ class LedgerMenu extends LedgerComponent {
 				callback: null,
 				show: false
 			},
+			overlay: false,
 			user: {
 				id: -1,
 				username: ''
@@ -167,34 +169,36 @@ class LedgerMenu extends LedgerComponent {
 	render() {
 		return (
 			<>
-				<Navbar bg="dark" variant="dark">
-					<Navbar.Brand href="/">
-						<img
-							alt=""
-							src={require('../images/mosquito_tiny.png')}
-							className="d-inline-block"
-							style={{marginTop: -7}}
-						/>{' '}
-						Ledger
-					</Navbar.Brand>
-					<Nav style={{ width: "50%" }}>
-						{this.renderLedgerLinks()}
-					</Nav>
-					<Nav className="justify-content-end" style={{ width: "50%" }}>
-						{this.renderAccountLinks()}
-					</Nav>
-				</Navbar>
-				<div style={{height: '10px', width: '100%'}}></div>
-				<Switch>
-					<Route path={this.props.match.path + '/transactions/:transactionId'} render={props => <EditTransaction parent={this} {...props} />} />
-					<Route path={this.props.match.path + '/entities/:entityId'} render={props => <EditEntity parent={this} {...props} />} />
-					<Route path={this.props.match.path + '/categories/:categoryId'} render={props => <EditCategory parent={this} {...props} />} />
-					<Route exact path={this.props.match.path + '/transactions'} render={props => <Ledger parent={this} {...props} />} />
-					<Route exact path={this.props.match.path + '/entities'} render={props => <Entities parent={this} {...props} />} />
-					<Route exact path={this.props.match.path + '/categories'} render={props => <Categories parent={this} {...props} />} />
-					<Route exact path={this.props.match.path + '/login'} render={props => <Login parent={this} {...props} />} />
-					<Route exact path={this.props.match.path + '/register'} render={props => <Register parent={this} {...props} />} />
-				</Switch>
+				<LoadingOverlay active={this.state.overlay} spinner>
+					<Navbar bg="dark" variant="dark">
+						<Navbar.Brand href="/">
+							<img
+								alt=""
+								src={require('../images/mosquito_tiny.png')}
+								className="d-inline-block"
+								style={{marginTop: -7}}
+							/>{' '}
+							Ledger
+						</Navbar.Brand>
+						<Nav style={{ width: "50%" }}>
+							{this.renderLedgerLinks()}
+						</Nav>
+						<Nav className="justify-content-end" style={{ width: "50%" }}>
+							{this.renderAccountLinks()}
+						</Nav>
+					</Navbar>
+					<div style={{height: '10px', width: '100%'}}></div>
+					<Switch>
+						<Route path={this.props.match.path + '/transactions/:transactionId'} render={props => <EditTransaction parent={this} {...props} />} />
+						<Route path={this.props.match.path + '/entities/:entityId'} render={props => <EditEntity parent={this} {...props} />} />
+						<Route path={this.props.match.path + '/categories/:categoryId'} render={props => <EditCategory parent={this} {...props} />} />
+						<Route exact path={this.props.match.path + '/transactions'} render={props => <Ledger parent={this} {...props} />} />
+						<Route exact path={this.props.match.path + '/entities'} render={props => <Entities parent={this} {...props} />} />
+						<Route exact path={this.props.match.path + '/categories'} render={props => <Categories parent={this} {...props} />} />
+						<Route exact path={this.props.match.path + '/login'} render={props => <Login parent={this} {...props} />} />
+						<Route exact path={this.props.match.path + '/register'} render={props => <Register parent={this} {...props} />} />
+					</Switch>
+				</LoadingOverlay>
 				<Modal show={this.state.alert.show} onHide={() => this.onAlertClose(false)}>
 					<Modal.Header closeButton>
 						<Modal.Title>{this.state.alert.title}</Modal.Title>

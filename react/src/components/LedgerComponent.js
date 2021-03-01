@@ -66,6 +66,14 @@ class LedgerComponent extends React.Component {
 		});
 	}
 	
+	loadingOverlay(showOverlay, callback) {
+		if (this.props.parent) {
+			this.props.parent.loadingOverlay(showOverlay, callback);
+		} else {
+			this.mergeState({ overlay: showOverlay }, callback);
+		}
+	}
+	
 	setUser(user) {
 		if (this.props.parent) {
 			this.props.parent.setUser(user);

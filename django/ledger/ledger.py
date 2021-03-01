@@ -14,12 +14,13 @@ import types
 def bankname_to_regex(bankname):
 	newBankName = ''
 	for ch in bankname:
-		if ch.isdigit():
-			newBankName += '[0-9]'
-		elif ch == '*':
-			newBankName += '[*]'
-		else:
-			newBankName += ch
+		if ch != '\r' and ch != '\n':
+			if ch.isdigit():
+				newBankName += '[0-9]'
+			elif ch == '*':
+				newBankName += '[*]'
+			else:
+				newBankName += ch
 	return newBankName
 
 def collect_unterminated_tag_names(xmlStr):
@@ -167,7 +168,7 @@ def load_for_entity(user, entity, transactionTypes, estimatesFrom, estimatesTo):
 			transTypeListSQL + ' ORDER BY transdate desc', sqlparams)
 		rows = cursor.fetchall()
 		# turn rows into dictionaries so they can be converted to json
-		keys = ('id','checknum','comments','amount','status','transdate','fitid','transdest_id','transsource_id','user_id','sourcename','destname')
+		keys = ('id','checknum','comments','amount','status','transdate','fitid','transdest_id','transsource_id','user_id','bankname','sourcename','destname')
 		for row in rows:
 			# create dictionary for transaction
 			transdict = dict(zip(keys,row))
@@ -298,10 +299,10 @@ def qfx_to_transactions(qfx, user, settings):
 		transdate = timezone.make_aware(datetime.strptime(transNode.findall('./DTPOSTED')[0].text.replace('[0:GMT]', 'UTC'), '%Y%m%d%H%M%S.%f%Z'), pytz.UTC)
 		checknumNodes = transNode.findall('./CHECKNUM')
 		checknum = checknumNodes[0].text if (len(checknumNodes) > 0) else None
-		comments = bankname_to_regex(transNode.findall('./NAME')[0].text.strip())
+		bankname = bankname_to_regex(transNode.findall('./MEMO')[0].text.strip())
 		amount = int(Decimal(transNode.findall('./TRNAMT')[0].text) * 100)
 		# try looking up entity by bankname
-		banknameLookup = BanknameLookup.objects.filter(bankname=comments,user=user).first()
+		banknameLookup = BanknameLookup.objects.filter(bankname=bankname,user=user).first()
 		banknameEntity = settings.unknownAccount if banknameLookup is None else banknameLookup.entity
 		# assign accounts depending on whether money is going in or out
 		if amount < 0:
@@ -315,7 +316,7 @@ def qfx_to_transactions(qfx, user, settings):
 			checknum = checknum,
 			transsource = transsource,
 			transdest = transdest,
-			comments = comments,
+			bankname = bankname,
 			amount = amount,
 			status = settings.transactionTypeNone.id,
 			transdate = transdate,
@@ -323,6 +324,41 @@ def qfx_to_transactions(qfx, user, settings):
 			user = user
 		))
 	return transactions
+
+def save_bankname(transaction, user):
+	# entity with which to associate the bank name
+	banknameEntity = None		
+	# if there is a bank name
+	if transaction.bankname is not None and transaction.bankname != '':
+		settings = get_user_settings(user)
+		# if this is going to a known account
+		if transaction.transdest != settings.unknownAccount:
+			# if the destination is the home account
+			if transaction.transdest == settings.homeAccount:
+				# if the source is not the Unknown or home account
+				if transaction.transsource != settings.unknownAccount and transaction.transsource != settings.homeAccount:
+					# associate the bank name with the source account
+					banknameEntity = transaction.transsource
+			else:
+				# associate the bank name with the destination account
+				banknameEntity = transaction.transdest
+	# if an account was chosen for the bankname
+	if banknameEntity is not None:
+		bankname = None
+		# look for existing bankname
+		banknames = BanknameLookup.objects.filter(bankname=transaction.bankname,user=user)
+		# if bankname was found
+		if len(banknames) == 0:
+			bankname = BanknameLookup(bankname=transaction.bankname,user=user)
+		elif len(banknames) == 1:
+			bankname = banknames[0]
+		elif len(banknames) > 1:
+			raise Exception('Expected 1 bank name but found ' + len(banknames))
+	# if a bankname record was found/created
+	if bankname is not None:
+		# set entity and save
+		bankname.entity = banknameEntity
+		bankname.save()
 
 def save_transaction_pairs(transactionPairs, settings):
 	# for each transaction
@@ -334,6 +370,8 @@ def save_transaction_pairs(transactionPairs, settings):
 			if transPair.bankTrans is not None:				
 				# copy bank fitid
 				transPair.localTrans.fitid = transPair.bankTrans.fitid
+				# copy bank name
+				transPair.localTrans.bankname = transPair.bankTrans.bankname
 				# copy transaction date
 				transPair.localTrans.transdate = transPair.bankTrans.transdate
 				# indicate update

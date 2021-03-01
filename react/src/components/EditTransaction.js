@@ -20,6 +20,8 @@ class EditTransaction extends LedgerComponent {
 			comment: '',
 			amount: '',
 			status: 1,
+			bankname: null,
+			saveBankname: false,
 			entities: [],
 			types: []
 		}
@@ -32,20 +34,32 @@ class EditTransaction extends LedgerComponent {
 			type: 'get',
 			url: this.getConfig().baseURL + 'django_entities/',
 		}).done(function (data) {
-			self.mergeState({ entities: data });
+			self.mergeState({ entities: data }, () => {
+				self.loadTransactionTypes();
+			});
 		}).fail(function (jqXHR, textStatus, errorThrown) {
 			self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
 		});
+	}
+	
+	loadTransactionTypes() {
+		var self = this;
 		
 		$.ajax({
 			type: 'get',
 			url: this.getConfig().baseURL + 'django_transactiontypes/',
 		}).done(function (data) {
-			self.mergeState({ types: data });
+			self.mergeState({ types: data }, () => {
+				self.loadTransaction();
+			});
 		}).fail(function (jqXHR, textStatus, errorThrown) {
 			self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
 		});
+	}
 
+	loadTransaction() {
+		var self = this;
+		
 		$.ajax({
 			type: 'get',
 			url: this.getConfig().baseURL + 'django_gettransaction/',
@@ -58,7 +72,9 @@ class EditTransaction extends LedgerComponent {
 				transdest: transaction.transdest_id,
 				comment: transaction.comments,
 				amount: self.formatCurrency(transaction.amount),
-				status: transaction.status
+				status: transaction.status,
+				bankname: transaction.bankname,
+				saveBankname: (transaction.bankname != null)
 			});
 		}).fail(function (jqXHR, textStatus, errorThrown) {
 			self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
@@ -101,7 +117,7 @@ class EditTransaction extends LedgerComponent {
 	}
 
 	parseCurrency(dollars) {
-		var fltDollars = parseFloat(dollars);
+		var fltDollars = parseFloat(dollars.replace(',', ''));
 		if (isNaN(fltDollars)) {
 			// not a number, return as is
 			return dollars;
@@ -123,7 +139,8 @@ class EditTransaction extends LedgerComponent {
 			transdest: this.state.transdest,
 			comment: this.state.comment,
 			amount: this.parseCurrency(this.state.amount),
-			status: this.state.status
+			status: this.state.status,
+			saveBankname: this.state.saveBankname
 		};
 		
 		$.ajax({
@@ -139,6 +156,25 @@ class EditTransaction extends LedgerComponent {
 		}).fail(function (jqXHR, textStatus, errorThrown) {
 			self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
 		});
+	}
+	
+	renderBankname() {
+		if (this.state.bankname != null) {
+			return (<>
+				<Form.Group as={Row}>
+					<Col sm={2} />
+					<Form.Label column sm={1}>Bank&nbsp;Name</Form.Label>
+					<Col sm={5} className='mt-2'>{this.state.bankname}</Col>
+				</Form.Group>
+				<Form.Group as={Row} controlId="saveBankname">
+					<Col sm={3} />
+					<Col sm={5}>
+						<Form.Check type="checkbox" label="Use bank name to match future transactions"
+							checked={this.state.saveBankname} onChange={(event) => this.mergeState({ saveBankname: event.target.value })}/>
+					</Col>
+				</Form.Group>
+			</>);
+		}
 	}
 
 	render() {
@@ -222,6 +258,7 @@ class EditTransaction extends LedgerComponent {
 							</Form.Control>
 						</Col>
 					</Form.Group>
+					{this.renderBankname()}
 					<Row>
 						<Col sm={{offset: 2, span: 8}} md={{offset: 3, span: 6}} lg={{offset: 4, span: 4}}>
 							<Button variant="primary" className="float-right"

@@ -190,13 +190,13 @@ def django_gettransaction(request):
 			return JsonResponse({ 'id': transId, 'checknum': '', 'comments': '', 'amount': 0, 'status': settings.transactionTypeNone.id, 
 				'transdate': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S'), 'fitid': None, 'transdest_id': settings.unknownAccount.id,
 				'transsource_id': settings.homeAccount.id, 'user_id': request.user.id, 'sourcename': settings.homeAccount.name,
-				'destname': settings.unknownAccount.name })
+				'destname': settings.unknownAccount.name, 'bankname': '' })
 		else:
 			# look up the existing transaction
 			with connection.cursor() as cursor:
 				cursor.execute("SELECT * FROM ledger_ledgerdisplay WHERE id = %s AND user_id = %s ORDER BY transdate", [int(transId), request.user.id])
 				rows = cursor.fetchall()
-				keys = ('id','checknum','comments','amount','status','transdate','fitid','transdest_id','transsource_id','user_id','sourcename','destname')
+				keys = ('id','checknum','comments','amount','status','transdate','fitid','transdest_id','transsource_id','user_id','bankname','sourcename','destname')
 				for row in rows:
 					transactions.append(dict(zip(keys,row)))
 		return HttpResponse(json.dumps(transactions[0],cls=DjangoJSONEncoder), content_type='application/json')
@@ -435,6 +435,9 @@ def django_updatetransaction(request):
 			transaction.amount = data['amount']
 			transaction.status = data['status']
 			ledger.save_transaction_unique_datetime(transaction)
+			# save the bankname if requested
+			if data['saveBankname']:
+				ledger.save_bankname(transaction, request.user)
 			success = True
 			message = 'Transaction updated successfully'
 	else:

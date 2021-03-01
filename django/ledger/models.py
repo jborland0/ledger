@@ -47,5 +47,6 @@ class Ledger(models.Model):
 	amount = models.IntegerField()
 	status = models.IntegerField()
 	transdate = models.DateTimeField()
+	bankname = models.CharField(max_length=255, null=True, blank=True)
 	fitid = models.CharField(max_length=255, null=True, blank=True)
 	user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)

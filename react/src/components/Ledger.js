@@ -247,25 +247,32 @@ class Ledger extends LedgerComponent {
 	
 	uploadFile() {
 		var self = this;
-		this.mergeState({ showUploadDialog: false}, () => {
+		
+		this.mergeState({ showUploadDialog: false }, () => {
 			if (self.state.selectedFile !== null) {
 				var filedata = new FormData();
 				filedata.append('file', self.state.selectedFile);
-				$.ajax({
-					type: 'post',
-					url: self.getConfig().baseURL + 'django_uploadtransactions/',
-					data: filedata,
-					cache: false,
-					contentType: false,
-					processData: false
-				}).done(function (data) {
-					if (data.success) {
-						self.loadTransactions(self.state.pageNumber, self.state.pageSize);
-					} else {
-						self.showAlert('Upload Transactions Error', data.message);
-					}
-				}).fail(function (jqXHR, textStatus, errorThrown) {
-					self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
+				self.loadingOverlay(true, () => {
+					$.ajax({
+						type: 'post',
+						url: self.getConfig().baseURL + 'django_uploadtransactions/',
+						data: filedata,
+						cache: false,
+						contentType: false,
+						processData: false
+					}).done(function (data) {
+						self.loadingOverlay(false, () => { 	
+							if (data.success) {
+								self.loadTransactions(self.state.pageNumber, self.state.pageSize);
+							} else {
+								self.showAlert('Upload Transactions Error', data.message);
+							}
+						});
+					}).fail(function (jqXHR, textStatus, errorThrown) {
+						self.loadingOverlay(false, () => { 	
+							self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
+						});
+					});
 				});
 			}
 		});
