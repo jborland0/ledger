@@ -170,7 +170,7 @@ class EditTransaction extends LedgerComponent {
 					<Col sm={3} />
 					<Col sm={5}>
 						<Form.Check type="checkbox" label="Use bank name to match future transactions"
-							checked={this.state.saveBankname} onChange={(event) => this.mergeState({ saveBankname: event.target.value })}/>
+							checked={this.state.saveBankname} onChange={(event) => this.mergeState({ saveBankname: event.target.checked })}/>
 					</Col>
 				</Form.Group>
 			</>);

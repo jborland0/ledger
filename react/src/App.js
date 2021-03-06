@@ -13,7 +13,7 @@ function App() {
 			<BrowserRouter>
 				<Route path={config.baseRoute} render={props => <LedgerMenu config={config} {...props} />} />
 			</BrowserRouter>
-	  </DndProvider>
+	    </DndProvider>
 	);
 }
 
