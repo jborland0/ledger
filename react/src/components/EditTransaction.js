@@ -74,7 +74,7 @@ class EditTransaction extends LedgerComponent {
 				amount: self.formatCurrency(transaction.amount),
 				status: transaction.status,
 				bankname: transaction.bankname,
-				saveBankname: (transaction.bankname != null)
+				saveBankname: (transaction.bankname !== null && transaction.bankname !== '')
 			});
 		}).fail(function (jqXHR, textStatus, errorThrown) {
 			self.showAlert('Server Error', 'Server returned a status of ' + jqXHR.status);
@@ -159,7 +159,7 @@ class EditTransaction extends LedgerComponent {
 	}
 	
 	renderBankname() {
-		if (this.state.bankname != null) {
+		if (this.state.bankname != null && this.state.bankname !== '') {
 			return (<>
 				<Form.Group as={Row}>
 					<Col sm={2} />
