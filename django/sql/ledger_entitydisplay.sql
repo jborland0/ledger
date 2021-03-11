@@ -1,3 +1,5 @@
+drop view ledger_entitydisplay
+go
 create view ledger_entitydisplay
 as
 select ledger_entity.*, ledger_category.name as category_name from ledger_entity
