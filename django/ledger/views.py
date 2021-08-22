@@ -17,6 +17,7 @@ from ledger.models import Category, Entity, Ledger, Settings, TransactionType
 import math
 from . import ledger
 from datetime import datetime
+from dbsync import dbsync
 
 def index(request):
 	return render(request, 'ledger/index.html')
@@ -346,6 +347,10 @@ def django_settings(request):
             rows = cursor.fetchall()
             if len(rows) > 0:
                 responseData = { 'home_account': rows[0][0], 'unknown_account': rows[0][1] }
+    return HttpResponse(json.dumps(responseData,cls=DjangoJSONEncoder), content_type='application/json')
+
+def django_test(request):
+    responseData = { 'test': dbsync.left_pad('pad', '6', '0') }
     return HttpResponse(json.dumps(responseData,cls=DjangoJSONEncoder), content_type='application/json')
 
 def django_transactiontypes(request):

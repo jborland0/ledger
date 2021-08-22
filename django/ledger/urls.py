@@ -21,6 +21,7 @@ urlpatterns = [
 	path('django_movetransaction/', views.django_movetransaction, name='django_movetransaction'),
     path('django_register/', views.django_register, name='django_register'),
     path('django_settings/', views.django_settings, name='django_settings'),
+    path('django_test/', views.django_test, name='django_test'),
     path('django_transactiontypes/', views.django_transactiontypes, name='django_transactiontypes'),
 	path('django_updatecategory/', views.django_updatecategory, name='django_updatecategory'),
 	path('django_updateentity/', views.django_updateentity, name='django_updateentity'),

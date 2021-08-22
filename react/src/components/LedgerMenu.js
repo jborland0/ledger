@@ -14,6 +14,7 @@ import LedgerComponent from './LedgerComponent';
 import Ledger from './Ledger';
 import Login from './Login';
 import Register from './Register';
+import Sync from './Sync';
 import EditTransaction from './EditTransaction';
 import $ from 'jquery';
 import LoadingOverlay from 'react-loading-overlay'
@@ -143,6 +144,7 @@ class LedgerMenu extends LedgerComponent {
 				<Nav.Link href='#' onSelect={(eventKey, event) => this.props.history.push(this.props.match.path + '/transactions')}>Transactions</Nav.Link>
 				<Nav.Link href='#' onSelect={(eventKey, event) => this.props.history.push(this.props.match.path + '/entities')}>Entities</Nav.Link>
 				<Nav.Link href='#' onSelect={(eventKey, event) => this.props.history.push(this.props.match.path + '/categories')}>Categories</Nav.Link>
+				{/*<Nav.Link href='#' onSelect={(eventKey, event) => this.props.history.push(this.props.match.path + '/sync')}>Sync</Nav.Link>*/}
 			</>);
 		}
 	}
@@ -194,6 +196,7 @@ class LedgerMenu extends LedgerComponent {
 					<Route exact path={this.props.match.path + '/transactions'} render={props => <Ledger parent={this} {...props} />} />
 					<Route exact path={this.props.match.path + '/entities'} render={props => <Entities parent={this} {...props} />} />
 					<Route exact path={this.props.match.path + '/categories'} render={props => <Categories parent={this} {...props} />} />
+					{/*<Route exact path={this.props.match.path + '/sync'} render={props => <Sync parent={this} {...props} />} />*/}
 					<Route exact path={this.props.match.path + '/login'} render={props => <Login parent={this} {...props} />} />
 					<Route exact path={this.props.match.path + '/register'} render={props => <Register parent={this} {...props} />} />
 				</Switch>
