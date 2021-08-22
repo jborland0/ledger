@@ -17,7 +17,7 @@ import Register from './Register';
 import Sync from './Sync';
 import EditTransaction from './EditTransaction';
 import $ from 'jquery';
-import LoadingOverlay from 'react-loading-overlay'
+import LoadingOverlay from 'react-loading-overlay-ts'
 
 class LedgerMenu extends LedgerComponent {
   	constructor(props) {
