@@ -113,10 +113,7 @@ const DndRow = ({ ledger, row, index, moveRow }) => {
       // but it's good here for the sake of performance
       // to avoid expensive index searches.
       item.index = hoverIndex
-    },
-	drop(item, monitor) {
-		ledger.dropTransaction()
-	}
+    }
   })
 
   const [{ isDragging }, drag, preview] = useDrag({
@@ -124,6 +121,9 @@ const DndRow = ({ ledger, row, index, moveRow }) => {
     collect: monitor => ({
       isDragging: monitor.isDragging(),
     }),
+	end(item, monitor) {
+		ledger.dropTransaction();
+	}
   })
 
   const opacity = isDragging ? 0 : 1
